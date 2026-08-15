@@ -23,6 +23,7 @@ is the same bar we already rely on for JSON mode.
 
 import json
 import logging
+import traceback
 from typing import Iterator
 
 import pandas as pd
@@ -382,9 +383,15 @@ def run_career_agent(
             reply = _reply_with_retry(messages)
         except Exception as exc:
             logger.exception("Agent step %d failed", step)
+            # Diagnostic: name the exception type and the frame it came from.
+            # Two fixes have now missed because the message alone did not
+            # identify which code path raised it.
+            frames = traceback.extract_tb(exc.__traceback__)
+            origin = (f"{frames[-1].filename.split('/')[-1]}:{frames[-1].lineno}"
+                      if frames else "unknown")
             yield {"type": "step", "n": step, "thought": "Model unavailable — "
                    "falling back to computed planning.", "tool": "fallback",
-                   "observation": str(exc)[:200]}
+                   "observation": f"[{type(exc).__name__} @ {origin}] {exc}"[:400]}
             yield {"type": "final", "plan": _fallback_plan(df, soc_code, skills, user_interests)}
             return
 
