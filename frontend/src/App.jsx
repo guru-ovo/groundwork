@@ -1,52 +1,22 @@
 import { useState } from 'react'
-import { resolveOccupation, getResilience, getRoadmap } from './api'
-import ResilienceGauge from './components/ResilienceGauge'
-import TaskBreakdown from './components/TaskBreakdown'
-import Roadmap from './components/Roadmap'
+import QuestionnaireFlow from './questionnaire/QuestionnaireFlow'
+import AgentTimeline from './components/AgentTimeline'
+import PlanPhases from './components/PlanPhases'
 import Logo from './components/Logo'
+import { usePlanStream } from './hooks/usePlanStream'
 
 export default function App() {
-  const [title, setTitle] = useState('')
-  const [matches, setMatches] = useState([])
-  const [resilience, setResilience] = useState(null)
-  const [roadmap, setRoadmap] = useState(null)
-  const [skillsInput, setSkillsInput] = useState('')
-  const [status, setStatus] = useState('idle') // idle | resolving | scoring | error
+  const { steps, phase, reading, plan, status, error, start, reset } = usePlanStream()
+  const [answers, setAnswers] = useState(null)
 
-  async function handleSearch(e) {
-    e.preventDefault()
-    setStatus('resolving')
-    setResilience(null)
-    setRoadmap(null)
-    try {
-      const result = await resolveOccupation(title)
-      setMatches(result.matches || [])
-      setStatus('idle')
-    } catch (err) {
-      setStatus('error')
-    }
+  function handleSubmit(payload, submitted) {
+    setAnswers(submitted)
+    start(payload)
   }
 
-  async function handleSelect(socCode) {
-    setStatus('scoring')
-    try {
-      const data = await getResilience(socCode)
-      setResilience(data)
-      setStatus('idle')
-    } catch (err) {
-      setStatus('error')
-    }
-  }
-
-  async function handleRoadmap() {
-    if (!resilience) return
-    const skills = skillsInput.split(',').map((s) => s.trim()).filter(Boolean)
-    try {
-      const data = await getRoadmap(resilience.soc_code, skills)
-      setRoadmap(data.roadmap)
-    } catch (err) {
-      setStatus('error')
-    }
+  function startOver() {
+    setAnswers(null)
+    reset()
   }
 
   return (
@@ -62,61 +32,34 @@ export default function App() {
         </p>
       </header>
 
-      <form onSubmit={handleSearch} className="search">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. Junior Data Analyst"
-        />
-        <button type="submit">Search</button>
-      </form>
+      {status === 'idle' && <QuestionnaireFlow onSubmit={handleSubmit} />}
 
-      {status === 'resolving' && <p className="status">Matching occupation…</p>}
-
-      {matches.length > 0 && !resilience && (
-        <ul className="matches">
-          {matches.map((m) => (
-            <li key={m.soc_code}>
-              <button onClick={() => handleSelect(m.soc_code)}>
-                {m.title} <span className="matches__code">{m.soc_code}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {status === 'scoring' && <p className="status">Scoring against real data…</p>}
-
-      {resilience && (
+      {status !== 'idle' && (
         <section className="results">
-          <ResilienceGauge
-            score={resilience.resilience_score}
-            occupationTitle={resilience.occupation_title}
-          />
-          <TaskBreakdown
-            atRiskTasks={resilience.at_risk_tasks}
-            resilientTasks={resilience.resilient_tasks}
+          {answers && (
+            <p className="status">
+              {answers.occupationTitle} · {answers.skills.length}{' '}
+              {answers.skills.length === 1 ? 'skill' : 'skills'} listed
+            </p>
+          )}
+
+          <AgentTimeline
+            steps={steps}
+            phase={phase}
+            reading={reading}
+            running={status === 'running'}
           />
 
-          <div className="skills">
-            <label>Your current skills (comma separated)</label>
-            <input
-              value={skillsInput}
-              onChange={(e) => setSkillsInput(e.target.value)}
-              placeholder="e.g. SQL, dashboarding, stakeholder presentations"
-            />
-            <button onClick={handleRoadmap}>Generate roadmap</button>
-          </div>
+          <PlanPhases plan={plan} />
 
-          <Roadmap items={roadmap} />
+          {error && <p className="status status--error">{error}</p>}
+
+          {status !== 'running' && (
+            <div>
+              <button type="button" onClick={startOver}>Start over</button>
+            </div>
+          )}
         </section>
-      )}
-
-      {status === 'error' && (
-        <p className="status status--error">
-          Couldn't reach the scoring service. It may be waking up — try again in
-          a moment.
-        </p>
       )}
     </div>
   )
