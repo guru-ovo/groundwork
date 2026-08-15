@@ -1,0 +1,17 @@
+soc_code,occupation_title,task_id,task_description,onet_importance,onet_frequency,economic_index_label,eloundou_beta
+15-2051.00,Data Scientists,T001,"Clean, organize, and validate raw datasets for analysis",4.2,4.8,automation,1.0
+15-2051.00,Data Scientists,T002,Build dashboards and visualizations to communicate findings,3.9,4.1,augmentation,0.5
+15-2051.00,Data Scientists,T003,Identify trends and patterns in complex datasets,4.5,4.3,augmentation,0.5
+15-2051.00,Data Scientists,T004,Present analysis and recommendations to non-technical stakeholders,4.0,3.2,none,0.0
+15-2051.00,Data Scientists,T005,Design and run A/B tests to validate hypotheses,3.8,3.0,augmentation,0.5
+15-2051.00,Data Scientists,T006,Write and maintain data pipeline code,3.6,4.0,automation,1.0
+15-2051.00,Data Scientists,T007,Mentor junior analysts on statistical methods,3.0,2.1,none,0.0
+15-1252.00,Software Developers,T101,Write and test application code,4.6,4.9,augmentation,0.5
+15-1252.00,Software Developers,T102,Debug and resolve defects in production systems,4.3,4.0,augmentation,0.5
+15-1252.00,Software Developers,T103,Design system architecture for new features,4.4,2.8,none,0.0
+15-1252.00,Software Developers,T104,Review pull requests and mentor teammates,3.7,3.3,none,0.0
+15-1252.00,Software Developers,T105,Write boilerplate and repetitive scaffolding code,3.0,3.5,automation,1.0
+13-2011.00,Accountants and Auditors,T201,Reconcile financial statements and ledgers,4.1,4.7,automation,1.0
+13-2011.00,Accountants and Auditors,T202,Advise clients on tax strategy and compliance risk,4.3,3.1,none,0.0
+13-2011.00,Accountants and Auditors,T203,Prepare routine tax filings from structured data,3.8,4.2,automation,1.0
+13-2011.00,Accountants and Auditors,T204,Detect fraud through judgment-based anomaly review,4.0,2.4,augmentation,0.5

@@ -1,0 +1,89 @@
+"""
+Thin wrapper around Featherless.ai's OpenAI-compatible /v1/chat/completions
+endpoint. Two entrypoints matching the two places an LLM actually belongs
+in this pipeline:
+
+  - resolve_occupation(): cheap/small model, Stage 0 (title -> SOC code)
+  - generate_roadmap():   strong model, Stage 4 (grounded synthesis)
+
+NOTE: confirm the exact model identifier strings in your Featherless
+dashboard before the hackathon build — the ones in .env.example are
+placeholders for "a small instruction-tuned model" and "a top-tier open
+model," swap in whatever slugs Featherless actually lists for those tiers.
+"""
+
+import os
+import json
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+FEATHERLESS_API_KEY = os.getenv("FEATHERLESS_API_KEY")
+FEATHERLESS_BASE_URL = os.getenv("FEATHERLESS_BASE_URL", "https://api.featherless.ai/v1")
+SMALL_MODEL = os.getenv("FEATHERLESS_SMALL_MODEL")
+STRONG_MODEL = os.getenv("FEATHERLESS_STRONG_MODEL")
+
+
+def _chat_completion(model: str, system_prompt: str, user_prompt: str, json_mode: bool = True) -> dict:
+    headers = {
+        "Authorization": f"Bearer {FEATHERLESS_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.2,
+    }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+
+    resp = requests.post(
+        f"{FEATHERLESS_BASE_URL}/chat/completions", headers=headers, json=payload, timeout=30
+    )
+    resp.raise_for_status()
+    content = resp.json()["choices"][0]["message"]["content"]
+    return json.loads(content)
+
+
+def resolve_occupation(free_text_title: str, candidate_occupations: list[dict]) -> dict:
+    """
+    candidate_occupations: [{"soc_code": "...", "title": "..."}, ...]
+    Returns: {"matches": [{"soc_code": "...", "title": "...", "confidence": "..."}]}
+    """
+    system_prompt = (
+        "You match a free-text job title to the closest official occupation "
+        "codes from a fixed candidate list. Return ONLY JSON: "
+        '{"matches": [{"soc_code": "...", "title": "...", "confidence": "high|medium|low"}]}. '
+        "Return up to 3 matches, best first. Never invent a soc_code not in the candidate list."
+    )
+    user_prompt = json.dumps(
+        {"input_title": free_text_title, "candidates": candidate_occupations}
+    )
+    return _chat_completion(SMALL_MODEL, system_prompt, user_prompt)
+
+
+def generate_roadmap(occupation_title: str, resilience_summary: dict, student_skills: list[str]) -> dict:
+    """
+    resilience_summary: the dict form of an OccupationResilience (see scoring.py)
+    Returns: {"roadmap": [{"action": "...", "reason": "...", "data_source": "..."}]}
+    """
+    system_prompt = (
+        "You are Groundwork's roadmap generator. You ONLY use the grounded exposure "
+        "data provided — you never invent a risk level for a task. For every "
+        "recommendation, cite the specific data point (economic_index_label or "
+        "eloundou_beta) that justifies it. Return ONLY JSON: "
+        '{"roadmap": [{"action": "...", "reason": "...", "data_source": "..."}]}. '
+        "Return 3-5 ranked items, most impactful first."
+    )
+    user_prompt = json.dumps(
+        {
+            "occupation": occupation_title,
+            "resilience_summary": resilience_summary,
+            "student_skills": student_skills,
+        }
+    )
+    return _chat_completion(STRONG_MODEL, system_prompt, user_prompt)
