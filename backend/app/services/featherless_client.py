@@ -77,13 +77,39 @@ def chat_json(
     body = resp.json()
     content = body["choices"][0]["message"]["content"]
     try:
-        return json.loads(content)
-    except json.JSONDecodeError as exc:
+        return _first_json_object(content)
+    except ValueError as exc:
         finish = body["choices"][0].get("finish_reason")
         raise ValueError(
             f"Model returned unparseable JSON (finish_reason={finish}, "
             f"{len(content)} chars): {exc}"
         ) from exc
+
+
+def _first_json_object(content: str) -> dict:
+    """
+    Take the first complete JSON object out of a completion.
+
+    JSON mode is not a guarantee of *exactly one* object. Reasoning-style
+    models routinely emit their working alongside the answer, or follow a
+    valid object with a second one, and plain json.loads() rejects the whole
+    response with "Extra data" — throwing away a perfectly good first object.
+    raw_decode stops at the end of the first value instead.
+    """
+    text = content.strip()
+    start = text.find("{")
+    if start == -1:
+        raise ValueError("no JSON object in response")
+
+    decoder = json.JSONDecoder()
+    try:
+        value, _ = decoder.raw_decode(text[start:])
+    except json.JSONDecodeError as exc:
+        raise ValueError(str(exc)) from exc
+
+    if not isinstance(value, dict):
+        raise ValueError(f"expected an object, got {type(value).__name__}")
+    return value
 
 
 def _require(model: str | None) -> None:
