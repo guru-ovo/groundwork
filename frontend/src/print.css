@@ -1,0 +1,198 @@
+/**
+ * Print / PDF presentation.
+ *
+ * The screen design is warm dark. Paper is not: a dark page wastes ink,
+ * greys out on most printers, and reads worse than the black-on-cream this
+ * document actually wants to be. So print inverts deliberately rather than
+ * inheriting — same typefaces, same accents, opposite ground.
+ *
+ * What survives to paper: the plan, the numbers, and every citation. What
+ * does not: the questionnaire, the agent timeline, and every control.
+ */
+
+/* Base (screen) rules come FIRST, before the print block.
+ *
+ * A media query does not raise specificity. If `.plan__masthead {display:none}`
+ * were declared after `@media print {.plan__masthead {display:block}}`, the
+ * later rule would win inside print too and the masthead would silently never
+ * appear on paper. Order is the whole mechanism here. */
+
+.plan__masthead,
+.plan__colophon {
+  display: none;
+}
+
+.plan__bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.plan__download {
+  background: transparent;
+  color: var(--ink-dim);
+  border: 1px solid var(--rule);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+.plan__download:hover {
+  border-color: var(--moss);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan__download { transition: none; }
+}
+
+@media print {
+  @page {
+    margin: 20mm 18mm;
+  }
+
+  :root {
+    --ink: #17150f;
+    --ink-dim: #55503f;
+    --rule: #d9d2c0;
+    --moss: #4f6a46;
+    --amber: #8a6413;
+  }
+
+  html, body {
+    background: #fff;
+    color: var(--ink);
+  }
+
+  /* Screen chrome that has no business on paper. */
+  .app__header,
+  .qn,
+  .timeline,
+  .status,
+  .results > div,
+  .plan__bar .plan__download {
+    display: none !important;
+  }
+
+  .app {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .results { gap: 0; }
+
+  .plan {
+    display: block;
+    color: var(--ink);
+  }
+
+  /* --- Masthead: screen-hidden, paper-only ------------------------------ */
+
+  .plan__masthead {
+    display: block;
+    margin-bottom: 22px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .plan__masthead-brand {
+    margin: 0 0 6px;
+    font-size: 10pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--moss);
+  }
+  .plan__masthead-title {
+    margin: 0 0 6px;
+    font-family: var(--display);
+    font-size: 24pt;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .plan__masthead-sub {
+    margin: 0;
+    font-size: 9.5pt;
+    color: var(--ink-dim);
+  }
+
+  .plan__bar { display: block; }
+  .plan__heading {
+    font-size: 13pt;
+    margin: 0 0 8px;
+    color: var(--ink);
+  }
+
+  .plan__summary {
+    font-size: 11pt;
+    line-height: 1.55;
+    color: var(--ink);
+    margin: 0 0 20px;
+    max-width: 34em;
+  }
+
+  /* --- The path -------------------------------------------------------- */
+
+  .plan__path {
+    break-inside: avoid;
+    margin: 0 0 22px;
+    padding: 14px 16px;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    gap: 10px;
+  }
+  .plan__score { color: var(--moss); font-size: 16pt; }
+  .plan__node-title { font-size: 11pt; }
+  .plan__meta, .plan__rationale { color: var(--ink-dim); font-size: 9.5pt; }
+
+  /* --- Phases ---------------------------------------------------------- */
+
+  .plan__phase {
+    break-inside: avoid;
+    margin-bottom: 20px;
+  }
+  .plan__window {
+    color: var(--ink-dim);
+    font-size: 9pt;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 5px;
+  }
+  .plan__milestones li {
+    break-inside: avoid;
+    border-left: 2px solid var(--rule);
+  }
+  .plan__action { font-size: 11pt; color: var(--ink); }
+  .plan__reason { font-size: 10pt; color: var(--ink-dim); }
+
+  /* The citations are the reason this document is worth printing. Keep them
+     legible rather than shrinking them into a footnote. */
+  .plan__source {
+    font-size: 9pt;
+    color: var(--amber);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .plan__provenance {
+    break-inside: avoid;
+    margin-top: 20px;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule);
+    font-size: 9.5pt;
+    color: var(--ink-dim);
+    max-width: 40em;
+  }
+
+  .plan__colophon {
+    display: block;
+    margin-top: 10px;
+    font-size: 8.5pt;
+    color: var(--ink-dim);
+    line-height: 1.5;
+  }
+  .plan__colophon p { margin: 0; }
+
+  /* Never strand a heading at the foot of a page. */
+  h1, h2, h3, h4 { break-after: avoid; }
+
+  a { color: inherit; text-decoration: none; }
+}

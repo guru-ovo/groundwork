@@ -50,7 +50,7 @@ export default function App() {
             running={status === 'running'}
           />
 
-          <PlanPhases plan={plan} />
+          <PlanPhases plan={plan} occupationTitle={answers?.occupationTitle} />
 
           {error && <p className="status status--error">{error}</p>}
 
