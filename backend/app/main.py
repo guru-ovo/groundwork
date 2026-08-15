@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from collections import defaultdict
@@ -7,6 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.routers import occupation, tasks, roadmap
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("groundwork")
 
 app = FastAPI(title="Groundwork API")
 
@@ -52,9 +56,13 @@ async def rate_limit(request: Request, call_next):
 
 # --- Generic error handling -------------------------------------------------
 # Don't let FastAPI's default handler leak stack traces / internal paths to
-# whoever is poking at your public demo URL, judges included.
+# whoever is poking at your public demo URL, judges included. But DO log the
+# traceback server-side — registering this handler stops uvicorn from printing
+# one, so without this the platform logs show an access line and nothing else,
+# and a 500 becomes undebuggable.
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "Something went wrong."})
 
 

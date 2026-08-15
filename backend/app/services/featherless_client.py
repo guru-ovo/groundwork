@@ -41,10 +41,24 @@ def _chat_completion(model: str, system_prompt: str, user_prompt: str, json_mode
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
 
+    if not FEATHERLESS_API_KEY:
+        raise RuntimeError("FEATHERLESS_API_KEY is not set")
+    if not model:
+        raise RuntimeError(
+            "No model configured — check FEATHERLESS_SMALL_MODEL / FEATHERLESS_STRONG_MODEL"
+        )
+
     resp = requests.post(
         f"{FEATHERLESS_BASE_URL}/chat/completions", headers=headers, json=payload, timeout=30
     )
-    resp.raise_for_status()
+    # raise_for_status() drops the response body, which is exactly where
+    # Featherless puts the reason (unknown model, bad key, unsupported
+    # response_format). Keep it — it's the difference between a debuggable
+    # log line and "500".
+    if not resp.ok:
+        raise RuntimeError(
+            f"Featherless {resp.status_code} for model={model}: {resp.text[:500]}"
+        )
     content = resp.json()["choices"][0]["message"]["content"]
     return json.loads(content)
 
