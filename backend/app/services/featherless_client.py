@@ -104,8 +104,22 @@ def _first_json_object(content: str) -> dict:
     decoder = json.JSONDecoder()
     try:
         value, _ = decoder.raw_decode(text[start:])
-    except json.JSONDecodeError as exc:
-        raise ValueError(str(exc)) from exc
+    except json.JSONDecodeError as first_error:
+        # A stray unescaped double quote inside a generated string breaks the
+        # object at that character even though the rest is well formed. Rather
+        # than lose the turn, retry on the text up to the last structurally
+        # plausible close brace — enough to recover a truncated tail, and it
+        # either parses cleanly or we surface the original error.
+        candidate = text[start:]
+        end = candidate.rfind("}")
+        while end > 0:
+            try:
+                value, _ = decoder.raw_decode(candidate[: end + 1])
+                break
+            except json.JSONDecodeError:
+                end = candidate.rfind("}", 0, end)
+        else:
+            raise ValueError(str(first_error)) from first_error
 
     if not isinstance(value, dict):
         raise ValueError(f"expected an object, got {type(value).__name__}")

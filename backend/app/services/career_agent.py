@@ -102,6 +102,10 @@ Available tools:
 
 Respond with ONE JSON object per turn, and nothing else.
 
+Never use the double-quote character inside a string value. If you need to
+quote something, use single quotes. An unescaped quote inside a milestone
+breaks the whole response.
+
 To investigate:
 {"thought": "<one short sentence, present tense, what you are checking and why>",
  "tool": "<tool name>", "args": {...}}
