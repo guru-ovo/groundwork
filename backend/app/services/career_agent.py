@@ -125,15 +125,33 @@ Rules for the plan:
 - 2-3 milestones per window. Concrete actions, not "learn AI".
 - Take the person's existing skills into account: do not tell them to learn
   what they already listed.
-- Investigate before concluding. Use at least two tools."""
+- Investigate before concluding. Use at least two tools.
+- Respect constraints.weekly_hours. Size every milestone to fit it. Someone
+  with 1 hour a week gets a genuinely different plan from someone with 12,
+  not the same plan with a longer deadline.
+- Respect constraints.budget. "free" means free resources only — never
+  recommend a paid course to someone who said free.
+- Respect constraints.goal_type. "adapt" stays in the current occupation and
+  the path has one node. "move" targets an adjacent occupation. "change"
+  targets the most resilient reachable occupation even at lower overlap.
+- constraints.answer_reading is an interpretation of the person's own words.
+  Treat its hard_constraints as binding and its watch_outs as things your
+  plan must avoid."""
 
 
-def _build_user_prompt(occupation: dict, skills: list[str], goal: str | None) -> str:
+def _build_user_prompt(
+    occupation: dict,
+    skills: list[str],
+    goal: str | None,
+    profile: dict | None = None,
+) -> str:
+    constraints = {k: v for k, v in (profile or {}).items() if v is not None}
     return json.dumps(
         {
             "current_occupation": occupation,
             "existing_skills": skills,
             "goal": goal or "find a more resilient path that builds on what I already do",
+            "constraints": constraints,
         }
     )
 
@@ -285,6 +303,7 @@ def run_career_agent(
     soc_code: str,
     skills: list[str],
     goal: str | None = None,
+    profile: dict | None = None,
     max_steps: int = MAX_STEPS,
 ) -> Iterator[dict]:
     """
@@ -299,7 +318,7 @@ def run_career_agent(
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": _build_user_prompt(occupation, skills, goal)},
+        {"role": "user", "content": _build_user_prompt(occupation, skills, goal, profile)},
     ]
 
     for step in range(1, max_steps + 1):
