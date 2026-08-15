@@ -37,6 +37,7 @@ def chat_json(
     model: str | None = None,
     temperature: float = 0.2,
     timeout: int = 45,
+    max_tokens: int = 2500,
 ) -> dict:
     """
     One JSON-mode completion over a full message list.
@@ -44,6 +45,10 @@ def chat_json(
     The agent loop needs to carry accumulated tool observations forward, so
     it can't use the fixed system+user shape below. Everything else — the
     missing-key guard, keeping the error body — is shared.
+
+    max_tokens is set explicitly and generously: a full three-phase plan runs
+    well past the provider's default cap, and JSON mode truncated mid-object
+    fails as a parse error that looks nothing like "the response was cut off".
     """
     model = model or STRONG_MODEL
     _require(model)
@@ -52,6 +57,7 @@ def chat_json(
         "model": model,
         "messages": messages,
         "temperature": temperature,
+        "max_tokens": max_tokens,
         "response_format": {"type": "json_object"},
     }
     resp = requests.post(
@@ -67,7 +73,17 @@ def chat_json(
         raise RuntimeError(
             f"Featherless {resp.status_code} for model={model}: {resp.text[:500]}"
         )
-    return json.loads(resp.json()["choices"][0]["message"]["content"])
+
+    body = resp.json()
+    content = body["choices"][0]["message"]["content"]
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError as exc:
+        finish = body["choices"][0].get("finish_reason")
+        raise ValueError(
+            f"Model returned unparseable JSON (finish_reason={finish}, "
+            f"{len(content)} chars): {exc}"
+        ) from exc
 
 
 def _require(model: str | None) -> None:

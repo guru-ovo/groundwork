@@ -255,6 +255,31 @@ def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str]) -> dict:
     }
 
 
+def _reply_with_retry(messages: list[dict]) -> dict:
+    """
+    One agent turn, with a single retry on unparseable output.
+
+    A malformed turn is usually recoverable — the model overran, or emitted
+    prose around the object. Retrying with an explicit instruction to be
+    terse costs one call; abandoning the whole run costs the feature.
+    Transport failures (bad key, gated model) are not retried, because the
+    second attempt will fail identically.
+    """
+    try:
+        return chat_json(messages, model=STRONG_MODEL)
+    except ValueError as exc:
+        logger.warning("Agent turn unparseable, retrying once: %s", exc)
+        return chat_json(
+            messages + [{
+                "role": "user",
+                "content": "Your last reply was not valid JSON. Reply with ONE "
+                           "compact JSON object and no other text. Keep it short: "
+                           "at most 2 milestones per window, one sentence each.",
+            }],
+            model=STRONG_MODEL,
+        )
+
+
 def run_career_agent(
     df: pd.DataFrame,
     soc_code: str,
@@ -279,7 +304,7 @@ def run_career_agent(
 
     for step in range(1, max_steps + 1):
         try:
-            reply = chat_json(messages, model=STRONG_MODEL)
+            reply = _reply_with_retry(messages)
         except Exception as exc:
             logger.exception("Agent step %d failed", step)
             yield {"type": "step", "n": step, "thought": "Model unavailable — "
