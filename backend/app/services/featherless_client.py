@@ -69,6 +69,17 @@ def chat_json(
         "temperature": temperature,
         "max_tokens": max_tokens,
         "response_format": {"type": "json_object"},
+        # Streaming is not for latency here — it is the fix for a provider
+        # bug. Non-streaming, Featherless intermittently returns a body its
+        # own encoder has corrupted: status 200, bytes present after the
+        # break, error at a different offset every time. One mishandled
+        # character in the completion text invalidates the entire envelope,
+        # and the whole turn is lost.
+        #
+        # Streamed, the same completion arrives as hundreds of small
+        # independent frames. A character the encoder mishandles damages one
+        # frame, which is skipped, and the rest reassembles.
+        "stream": True,
     }
     resp = requests.post(
         f"{FEATHERLESS_BASE_URL}/chat/completions",
@@ -78,34 +89,50 @@ def chat_json(
         },
         json=payload,
         timeout=timeout,
+        stream=True,
     )
     if not resp.ok:
         raise RuntimeError(
             f"Featherless {resp.status_code} for model={model}: {resp.text[:500]}"
         )
 
-    # resp.json() parses the HTTP envelope, not the model's answer. It fails
-    # when Featherless returns a truncated body — which it does intermittently,
-    # at varying byte offsets. That failure is a transport problem wearing a
-    # JSON error's clothing, and for a long time it was misread as the model
-    # emitting bad JSON, because the raw JSONDecodeError says nothing about
-    # which of the two layers produced it.
-    try:
-        body = resp.json()
-    except ValueError as exc:
-        raise TruncatedResponse(
-            f"Featherless returned {len(resp.content)} bytes that are not valid "
-            f"JSON (status {resp.status_code}): {exc}"
-        ) from exc
+    pieces: list[str] = []
+    finish: str | None = None
+    unreadable = 0
 
-    content = body["choices"][0]["message"]["content"]
+    for raw in resp.iter_lines(decode_unicode=True):
+        if not raw or not raw.startswith("data: "):
+            continue
+        data = raw[6:].strip()
+        if data == "[DONE]":
+            break
+        try:
+            frame = json.loads(data)
+        except ValueError:
+            # One damaged frame costs a few characters, not the turn.
+            unreadable += 1
+            continue
+
+        choice = (frame.get("choices") or [{}])[0]
+        piece = (choice.get("delta") or {}).get("content")
+        if piece:
+            pieces.append(piece)
+        if choice.get("finish_reason"):
+            finish = choice["finish_reason"]
+
+    content = "".join(pieces)
+    if not content:
+        raise TruncatedResponse(
+            f"Streamed response carried no content (finish_reason={finish}, "
+            f"{unreadable} unreadable frames)"
+        )
+
     try:
         return _first_json_object(content)
     except ValueError as exc:
-        finish = body["choices"][0].get("finish_reason")
         raise ValueError(
             f"Model returned unparseable JSON (finish_reason={finish}, "
-            f"{len(content)} chars): {exc}"
+            f"{len(content)} chars, {unreadable} unreadable frames): {exc}"
         ) from exc
 
 
