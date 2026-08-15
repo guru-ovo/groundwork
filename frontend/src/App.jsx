@@ -2,20 +2,29 @@ import { useState } from 'react'
 import QuestionnaireFlow from './questionnaire/QuestionnaireFlow'
 import AgentTimeline from './components/AgentTimeline'
 import PlanPhases from './components/PlanPhases'
+import DataConfidence from './components/DataConfidence'
+import ResilienceGauge from './components/ResilienceGauge'
 import Logo from './components/Logo'
 import { usePlanStream } from './hooks/usePlanStream'
+import { getResilience } from './api'
 
 export default function App() {
   const { steps, phase, reading, plan, status, error, start, reset } = usePlanStream()
   const [answers, setAnswers] = useState(null)
+  const [resilience, setResilience] = useState(null)
 
   function handleSubmit(payload, submitted) {
     setAnswers(submitted)
+    // Fetch the grounded score alongside the agent run rather than after it.
+    // It is pure computation and returns in milliseconds, so the reader sees
+    // a real number immediately instead of watching a spinner for 20 seconds.
+    getResilience(payload.soc_code).then(setResilience).catch(() => setResilience(null))
     start(payload)
   }
 
   function startOver() {
     setAnswers(null)
+    setResilience(null)
     reset()
   }
 
@@ -36,11 +45,20 @@ export default function App() {
 
       {status !== 'idle' && (
         <section className="results">
-          {answers && (
-            <p className="status">
-              {answers.occupationTitle} · {answers.skills.length}{' '}
-              {answers.skills.length === 1 ? 'skill' : 'skills'} listed
-            </p>
+          {resilience && (
+            <>
+              <ResilienceGauge
+                score={resilience.resilience_score}
+                occupationTitle={resilience.occupation_title}
+              />
+              <DataConfidence
+                coverage={resilience.economic_index_coverage}
+                ratingsEstimated={resilience.ratings_estimated}
+                taskCount={
+                  resilience.at_risk_tasks.length + resilience.resilient_tasks.length
+                }
+              />
+            </>
           )}
 
           <AgentTimeline
