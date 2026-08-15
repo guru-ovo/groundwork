@@ -32,6 +32,53 @@ SMALL_MODEL = _env("FEATHERLESS_SMALL_MODEL")
 STRONG_MODEL = _env("FEATHERLESS_STRONG_MODEL")
 
 
+def chat_json(
+    messages: list[dict],
+    model: str | None = None,
+    temperature: float = 0.2,
+    timeout: int = 45,
+) -> dict:
+    """
+    One JSON-mode completion over a full message list.
+
+    The agent loop needs to carry accumulated tool observations forward, so
+    it can't use the fixed system+user shape below. Everything else — the
+    missing-key guard, keeping the error body — is shared.
+    """
+    model = model or STRONG_MODEL
+    _require(model)
+
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "response_format": {"type": "json_object"},
+    }
+    resp = requests.post(
+        f"{FEATHERLESS_BASE_URL}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {FEATHERLESS_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=timeout,
+    )
+    if not resp.ok:
+        raise RuntimeError(
+            f"Featherless {resp.status_code} for model={model}: {resp.text[:500]}"
+        )
+    return json.loads(resp.json()["choices"][0]["message"]["content"])
+
+
+def _require(model: str | None) -> None:
+    if not FEATHERLESS_API_KEY:
+        raise RuntimeError("FEATHERLESS_API_KEY is not set")
+    if not model:
+        raise RuntimeError(
+            "No model configured — check FEATHERLESS_SMALL_MODEL / FEATHERLESS_STRONG_MODEL"
+        )
+
+
 def _chat_completion(model: str, system_prompt: str, user_prompt: str, json_mode: bool = True) -> dict:
     headers = {
         "Authorization": f"Bearer {FEATHERLESS_API_KEY}",

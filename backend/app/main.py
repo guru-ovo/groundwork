@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.routers import occupation, tasks, roadmap
+from app.routers import career, occupation, tasks, roadmap
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("groundwork")
@@ -39,7 +39,9 @@ app.add_middleware(
 # through your Featherless credit allocation mid-demo. Swap for slowapi or
 # a proper gateway if this goes past the hackathon.
 _request_log = defaultdict(list)
-RATE_LIMIT = 30       # requests
+RATE_LIMIT = 120      # requests — raised for judging: one visitor exploring an
+                      # occupation plus a single agent run is already a dozen,
+                      # and several judges can share an institutional NAT'd IP.
 RATE_WINDOW = 300     # seconds
 
 
@@ -69,6 +71,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 app.include_router(occupation.router)
 app.include_router(tasks.router)
 app.include_router(roadmap.router)
+app.include_router(career.router)
 
 
 @app.get("/health")
