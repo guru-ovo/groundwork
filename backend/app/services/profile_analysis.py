@@ -21,7 +21,7 @@ structured answers alone are enough.
 import json
 import logging
 
-from app.services.featherless_client import chat_json, SMALL_MODEL
+from app.services.featherless_client import chat_json, SMALL_MODEL, STRONG_MODEL
 
 logger = logging.getLogger("groundwork")
 
@@ -78,17 +78,27 @@ def analyse_answers(
         "work_values_chosen": [WORK_VALUES.get(v, v) for v in (work_values or [])],
     }
 
-    try:
-        result = chat_json(
-            [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": json.dumps(payload)},
-            ],
-            model=SMALL_MODEL,
-            max_tokens=700,
-        )
-    except Exception:
-        logger.exception("Answer analysis failed; continuing without it")
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": json.dumps(payload)},
+    ]
+
+    # Try the cheap model first, then the strong one. Not every model in
+    # Featherless's catalogue honours response_format, and this reading is
+    # the first thing the user sees — worth a second attempt at ~$0.0005
+    # before giving up on it.
+    result = None
+    for model in (SMALL_MODEL, STRONG_MODEL):
+        if not model:
+            continue
+        try:
+            result = chat_json(messages, model=model, max_tokens=700)
+            break
+        except Exception as exc:
+            logger.warning("Answer analysis failed on %s: %s", model, str(exc)[:200])
+
+    if result is None:
+        logger.warning("Answer analysis unavailable; continuing without it")
         return None
 
     def clean_list(key: str) -> list[str]:
