@@ -19,6 +19,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+class TruncatedResponse(ValueError):
+    """
+    Featherless sent a body that is not valid JSON — almost always truncated.
+
+    Its own class because the response to it is different from every other
+    parse failure: it is transient and worth retrying, whereas a model that
+    writes malformed JSON will usually write it again.
+    """
+
+
 def _env(name: str, default: str | None = None) -> str | None:
     """Trailing whitespace in a dashboard textarea is invisible and rides into
     the Authorization header, where it reads as a malformed token. Strip it."""
@@ -74,7 +84,20 @@ def chat_json(
             f"Featherless {resp.status_code} for model={model}: {resp.text[:500]}"
         )
 
-    body = resp.json()
+    # resp.json() parses the HTTP envelope, not the model's answer. It fails
+    # when Featherless returns a truncated body — which it does intermittently,
+    # at varying byte offsets. That failure is a transport problem wearing a
+    # JSON error's clothing, and for a long time it was misread as the model
+    # emitting bad JSON, because the raw JSONDecodeError says nothing about
+    # which of the two layers produced it.
+    try:
+        body = resp.json()
+    except ValueError as exc:
+        raise TruncatedResponse(
+            f"Featherless returned {len(resp.content)} bytes that are not valid "
+            f"JSON (status {resp.status_code}): {exc}"
+        ) from exc
+
     content = body["choices"][0]["message"]["content"]
     try:
         return _first_json_object(content)

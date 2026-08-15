@@ -25,6 +25,14 @@ from app.services.featherless_client import chat_json, SMALL_MODEL, STRONG_MODEL
 
 logger = logging.getLogger("groundwork")
 
+# gpt-oss models reason before they answer, and the reasoning is billed
+# against the same budget as the reply. At 700 the whole allowance was being
+# spent thinking, and the call returned finish_reason=length with zero
+# content characters — which reads like a broken model rather than a cap set
+# too low. The reading itself is a few hundred tokens; the headroom is for
+# the reasoning in front of it.
+ANALYSIS_MAX_TOKENS = 2000
+
 # O*NET's Work Importance Locator scores six work values. Using the same
 # framework as the task data keeps the whole product citable to one source.
 WORK_VALUES = {
@@ -92,7 +100,7 @@ def analyse_answers(
         if not model:
             continue
         try:
-            result = chat_json(messages, model=model, max_tokens=700)
+            result = chat_json(messages, model=model, max_tokens=ANALYSIS_MAX_TOKENS)
             break
         except Exception as exc:
             logger.warning("Answer analysis failed on %s: %s", model, str(exc)[:200])

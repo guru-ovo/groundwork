@@ -23,12 +23,13 @@ is the same bar we already rely on for JSON mode.
 
 import json
 import logging
+import time
 import traceback
 from typing import Iterator
 
 import pandas as pd
 
-from app.services.featherless_client import chat_json, STRONG_MODEL
+from app.services.featherless_client import TruncatedResponse, chat_json, STRONG_MODEL
 from app.services.interests import interest_fit, rank_by_interest
 from app.services.scoring import score_occupation
 from app.services.similarity import compare_occupations, find_adjacent_occupations, overlap_map
@@ -338,19 +339,32 @@ def _reply_with_retry(messages: list[dict]) -> dict:
     Transport failures (bad key, gated model) are not retried, because the
     second attempt will fail identically.
     """
-    try:
-        return chat_json(messages, model=STRONG_MODEL)
-    except ValueError as exc:
-        logger.warning("Agent turn unparseable, retrying once: %s", exc)
-        return chat_json(
-            messages + [{
+    last_error: Exception | None = None
+
+    for attempt in range(3):
+        try:
+            return chat_json(messages, model=STRONG_MODEL)
+        except TruncatedResponse as exc:
+            # The provider cut the body short. The request was fine, so send
+            # it again unchanged — telling the model to "be terse" would be
+            # answering a question it was never asked.
+            last_error = exc
+            logger.warning("Truncated response from Featherless (attempt %d): %s",
+                           attempt + 1, exc)
+            time.sleep(0.6 * (attempt + 1))
+        except ValueError as exc:
+            # The model genuinely wrote malformed JSON. Ask for something
+            # smaller, once.
+            last_error = exc
+            logger.warning("Agent turn unparseable, retrying once: %s", exc)
+            messages = messages + [{
                 "role": "user",
                 "content": "Your last reply was not valid JSON. Reply with ONE "
                            "compact JSON object and no other text. Keep it short: "
                            "at most 2 milestones per window, one sentence each.",
-            }],
-            model=STRONG_MODEL,
-        )
+            }]
+
+    raise last_error if last_error else RuntimeError("agent turn failed")
 
 
 def run_career_agent(
