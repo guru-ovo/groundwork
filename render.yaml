@@ -1,0 +1,34 @@
+# Render blueprint for the Groundwork API.
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repo.
+# Every `sync: false` var is left blank here on purpose — you fill those in
+# Render's dashboard so no key ever lands in git.
+services:
+  - type: web
+    name: groundwork-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # pandas 2.2.2 has no wheels for 3.13 — pin so the build doesn't try
+      # to compile it from source on a free instance and time out.
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      # Your Vercel production URL, e.g. https://groundwork.vercel.app
+      # (comma-separated if you need more than one).
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: FEATHERLESS_API_KEY
+        sync: false
+      - key: FEATHERLESS_BASE_URL
+        value: https://api.featherless.ai/v1
+      - key: FEATHERLESS_SMALL_MODEL
+        sync: false
+      - key: FEATHERLESS_STRONG_MODEL
+        sync: false
+      - key: ONET_USERNAME
+        sync: false
+      - key: ONET_PASSWORD
+        sync: false

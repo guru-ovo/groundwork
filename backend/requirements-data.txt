@@ -1,0 +1,9 @@
+# Offline data-prep only — used by app/data/join_datasets.py to pull the
+# Anthropic Economic Index and produce the joined CSV. The API never imports
+# this at runtime, so keeping it out of requirements.txt keeps the Render
+# build small enough to finish on a free instance.
+#
+# Install locally when you're rebuilding the dataset:
+#   pip install -r requirements-data.txt
+-r requirements.txt
+datasets==2.20.0

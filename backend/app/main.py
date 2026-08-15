@@ -1,3 +1,4 @@
+import os
 import time
 from collections import defaultdict
 
@@ -9,12 +10,21 @@ from app.routers import occupation, tasks, roadmap
 
 app = FastAPI(title="Groundwork API")
 
+# Exact origins, comma-separated, via ALLOWED_ORIGINS — set this on Render to
+# your Vercel URL. Still never "*": the rate limiter is per-IP and the
+# Featherless key is on this side of the wire.
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+    if origin.strip()
+]
+
+# Vercel gives every branch and every deploy its own preview subdomain, so the
+# preview URLs can't be enumerated ahead of time — match them by pattern.
 app.add_middleware(
     CORSMiddleware,
-    # Dev only. Before deploying, replace with your exact deployed
-    # frontend URL — never "*" once you're sending credentials/keys
-    # anywhere near the request path.
-    allow_origins=["http://localhost:5173"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )

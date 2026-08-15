@@ -1,4 +1,7 @@
-const BASE_URL = 'http://localhost:8000'
+// Set VITE_API_URL in Vercel's project env vars to the deployed backend URL.
+// Falls back to the local uvicorn default so `npm run dev` works untouched.
+// Trailing slashes are stripped so `${BASE_URL}/path` never doubles up.
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '')
 
 export async function resolveOccupation(title) {
   const res = await fetch(`${BASE_URL}/resolve-occupation`, {
