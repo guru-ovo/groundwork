@@ -20,6 +20,11 @@ def get_resilience(soc_code: str):
         "occupation_title": result.occupation_title,
         "resilience_score": result.resilience_score,
         "aggregate_exposure": result.aggregate_exposure,
+        # Confidence signals, surfaced rather than buried: how much of this
+        # occupation has real observed-usage data behind it, and whether
+        # O*NET has actually rated it.
+        "economic_index_coverage": result.economic_index_coverage,
+        "ratings_estimated": result.ratings_estimated,
         "at_risk_tasks": [asdict(t) for t in result.at_risk_tasks],
         "resilient_tasks": [asdict(t) for t in result.resilient_tasks],
     }

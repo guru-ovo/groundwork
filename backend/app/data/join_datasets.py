@@ -101,9 +101,25 @@ def load_onet(onet_dir: Path) -> pd.DataFrame:
 
     df = (
         tasks.merge(occupations[["soc_code", "occupation_title"]], on="soc_code")
-        .merge(importance, on=["soc_code", "task_id"])
-        .merge(frequency, on=["soc_code", "task_id"])
+        .merge(importance, on=["soc_code", "task_id"], how="left")
+        .merge(frequency, on=["soc_code", "task_id"], how="left")
     )
+
+    # 44 occupations have task statements but no incumbent ratings — O*NET
+    # re-coded them in the 2019 SOC revision and has not surveyed them yet.
+    # They are disproportionately the newest and most AI-relevant jobs:
+    # Software Developers, Data Scientists, Penetration Testers.
+    #
+    # Rather than drop them or invent ratings, weight their tasks equally and
+    # say so. Their exposure numbers are entirely real — only the relative
+    # weighting between tasks is unavailable, and a uniform prior is the
+    # honest stand-in for "we do not know which of these matters most".
+    df["ratings_source"] = "onet_incumbent"
+    unrated = df["onet_importance"].isna() | df["onet_frequency"].isna()
+    df.loc[unrated, "ratings_source"] = "uniform_prior"
+    df.loc[unrated, "onet_importance"] = 1.0
+    df.loc[unrated, "onet_frequency"] = 1.0
+
     return df
 
 
@@ -174,7 +190,7 @@ def build(onet_dir: Path, eloundou: Path, econ_index: Path, min_tasks: int) -> p
     df = df[[
         "soc_code", "occupation_title", "task_id", "task_description",
         "onet_importance", "onet_frequency", "economic_index_label",
-        "eloundou_beta",
+        "eloundou_beta", "ratings_source",
     ]].copy()
 
     df["onet_importance"] = df["onet_importance"].round(2)
@@ -211,6 +227,8 @@ def main() -> int:
     print(f"  {len(df):,} tasks · {df['soc_code'].nunique():,} occupations "
           f"· {args.out.stat().st_size / 1e6:.1f} MB")
     print(f"  label mix: {df['economic_index_label'].value_counts().to_dict()}")
+    uniform = df[df["ratings_source"] == "uniform_prior"]["soc_code"].nunique()
+    print(f"  occupations weighted by uniform prior (O*NET has not rated them): {uniform}")
     return 0
 
 

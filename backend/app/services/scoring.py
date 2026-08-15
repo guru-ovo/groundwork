@@ -52,6 +52,10 @@ class TaskScore:
     onet_importance: float
     onet_frequency: float
     has_economic_index: bool  # False when only the Eloundou measure applies
+    # "onet_incumbent" when real survey ratings weight this task;
+    # "uniform_prior" when O*NET has not rated the occupation yet and every
+    # task is weighted equally. See join_datasets.py.
+    ratings_source: str
 
 
 @dataclass
@@ -68,6 +72,10 @@ class OccupationResilience:
     # deserves less confidence than one built on 90%, and the reader is
     # entitled to know which they are looking at.
     economic_index_coverage: float
+    # True when O*NET has not surveyed this occupation, so tasks are weighted
+    # equally rather than by measured importance and frequency. The score is
+    # still built from real exposure data; only the weighting is a stand-in.
+    ratings_estimated: bool
 
 
 def score_tasks(tasks_df: pd.DataFrame) -> list[TaskScore]:
@@ -97,6 +105,7 @@ def score_tasks(tasks_df: pd.DataFrame) -> list[TaskScore]:
                 onet_importance=float(row["onet_importance"]),
                 onet_frequency=float(row["onet_frequency"]),
                 has_economic_index=has_ei,
+                ratings_source=str(row.get("ratings_source", "onet_incumbent")),
             )
         )
     return scores
@@ -144,6 +153,11 @@ def aggregate_occupation(
         resilient_tasks=resilient,
         all_tasks=task_scores,
         economic_index_coverage=round(covered / len(task_scores), 3) if task_scores else 0.0,
+        # all(), not any(): a surveyed occupation routinely has a few tasks
+        # added since the last survey. That is a normal gap, not an unrated
+        # occupation, and flagging it would cry wolf on almost everything.
+        ratings_estimated=bool(task_scores)
+        and all(t.ratings_source == "uniform_prior" for t in task_scores),
     )
 
 
