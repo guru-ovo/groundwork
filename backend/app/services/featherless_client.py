@@ -19,10 +19,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-FEATHERLESS_API_KEY = os.getenv("FEATHERLESS_API_KEY")
-FEATHERLESS_BASE_URL = os.getenv("FEATHERLESS_BASE_URL", "https://api.featherless.ai/v1")
-SMALL_MODEL = os.getenv("FEATHERLESS_SMALL_MODEL")
-STRONG_MODEL = os.getenv("FEATHERLESS_STRONG_MODEL")
+def _env(name: str, default: str | None = None) -> str | None:
+    """Trailing whitespace in a dashboard textarea is invisible and rides into
+    the Authorization header, where it reads as a malformed token. Strip it."""
+    value = os.getenv(name, default)
+    return value.strip() if isinstance(value, str) else value
+
+
+FEATHERLESS_API_KEY = _env("FEATHERLESS_API_KEY")
+FEATHERLESS_BASE_URL = _env("FEATHERLESS_BASE_URL", "https://api.featherless.ai/v1").rstrip("/")
+SMALL_MODEL = _env("FEATHERLESS_SMALL_MODEL")
+STRONG_MODEL = _env("FEATHERLESS_STRONG_MODEL")
 
 
 def _chat_completion(model: str, system_prompt: str, user_prompt: str, json_mode: bool = True) -> dict:
