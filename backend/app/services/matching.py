@@ -13,6 +13,7 @@ already pure computation, which means Groundwork can answer the question
 answer is just less eloquently phrased.
 """
 
+import math
 import re
 from collections import Counter
 
@@ -59,27 +60,63 @@ def _content_tokens(text: str) -> list[str]:
     return [t for t in _tokenize(text) if t not in _STOPWORDS]
 
 
-def _similarity(query_tokens: list[str], title_tokens: list[str]) -> float:
+def _idf(candidates: list[dict]) -> dict[str, float]:
     """
-    Weighted overlap, asymmetric on purpose.
+    How informative each word in the occupation list is.
+
+    Essential at this corpus size. Across 878 O*NET titles, "engineer"
+    appears in roughly forty of them and "software" in a handful — so an
+    unweighted overlap ranks "software engineer" against forty engineering
+    occupations before it reaches Software Developers, and the right answer
+    falls off the shortlist entirely. Weighting by rarity fixes that
+    directly: shared rare words decide the match, shared common ones barely
+    move it.
+    """
+    document_freq: Counter = Counter()
+    for candidate in candidates:
+        document_freq.update(set(_content_tokens(candidate["title"])))
+
+    total = len(candidates) or 1
+    return {
+        token: math.log(total / (1 + freq)) + 1.0
+        for token, freq in document_freq.items()
+    }
+
+
+def _similarity(
+    query_tokens: list[str], title_tokens: list[str], idf: dict[str, float]
+) -> float:
+    """
+    IDF-weighted overlap, asymmetric on purpose.
 
     A typed title is short, so recall against the *query* matters more than
-    against the candidate: "data analyst" should match "Data Scientists"
-    strongly even though the candidate has words the query lacks. Plain
+    against the candidate: "data analyst" should match "Business Intelligence
+    Analysts" even though the candidate has words the query lacks. Plain
     Jaccard punishes exactly that case.
     """
     if not query_tokens or not title_tokens:
         return 0.0
 
-    query_counts = Counter(query_tokens)
     title_set = set(title_tokens)
-    matched = sum(count for token, count in query_counts.items() if token in title_set)
-    coverage = matched / sum(query_counts.values())
+    # Unknown query words get the weight of a maximally rare term: a word
+    # absent from every title is not evidence of a match, but neither should
+    # it silently vanish from the denominator.
+    default = max(idf.values(), default=1.0)
+
+    query_set = list(dict.fromkeys(query_tokens))
+    total_weight = sum(idf.get(t, default) for t in query_set)
+    if total_weight == 0:
+        return 0.0
+
+    matched = sum(idf.get(t, default) for t in query_set if t in title_set)
+    coverage = matched / total_weight
 
     # Small bonus when the candidate is also well covered, so an exact match
-    # outranks a partial one that happens to cover the query.
-    reverse = len(title_set & set(query_tokens)) / len(title_set)
-    return round(coverage * 0.75 + reverse * 0.25, 4)
+    # outranks a partial one that merely happens to cover the query.
+    reverse = sum(idf.get(t, default) for t in title_set if t in query_set) / (
+        sum(idf.get(t, default) for t in title_set) or 1.0
+    )
+    return round(coverage * 0.8 + reverse * 0.2, 4)
 
 
 def _confidence(score: float) -> str:
@@ -99,10 +136,11 @@ def match_occupations(free_text_title: str, candidates: list[dict], limit: int =
     router can substitute one for the other without the frontend noticing.
     """
     query_tokens = _content_tokens(free_text_title)
+    idf = _idf(candidates)
 
     scored = []
     for candidate in candidates:
-        score = _similarity(query_tokens, _content_tokens(candidate["title"]))
+        score = _similarity(query_tokens, _content_tokens(candidate["title"]), idf)
         if score > 0:
             scored.append((score, candidate))
 

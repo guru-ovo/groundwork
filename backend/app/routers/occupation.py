@@ -11,6 +11,10 @@ logger = logging.getLogger("groundwork")
 
 router = APIRouter()
 
+# Wide enough that the right answer is almost always inside it, small enough
+# that the prompt stays cheap.
+SHORTLIST_SIZE = 30
+
 
 class ResolveRequest(BaseModel):
     title: str
@@ -28,8 +32,16 @@ def resolve(req: ResolveRequest):
     """
     candidates = load_occupation_list()
 
+    # The dataset is 878 occupations. Sending every title to the model would
+    # be ~10k tokens of prompt per search, for a question that is mostly
+    # string matching. Shortlist deterministically first, then let the model
+    # do the part it is actually good at: telling which of 30 plausible
+    # titles matches what the person meant.
+    shortlist = match_occupations(req.title, candidates, limit=SHORTLIST_SIZE)["matches"]
+    shortlisted = [{"soc_code": m["soc_code"], "title": m["title"]} for m in shortlist]
+
     try:
-        result = resolve_occupation(req.title, candidates)
+        result = resolve_occupation(req.title, shortlisted)
         matches = result.get("matches") or []
         if matches:
             # Guard against a model inventing a SOC code that isn't ours.

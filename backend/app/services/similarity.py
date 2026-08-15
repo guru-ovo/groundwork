@@ -89,6 +89,47 @@ def _cosine(a: dict[str, float], b: dict[str, float]) -> float:
     return sum(weight * b.get(term, 0.0) for term, weight in a.items())
 
 
+_VECTOR_CACHE: dict[int, dict[str, dict[str, float]]] = {}
+
+
+def _vectors_for(df: pd.DataFrame) -> dict[str, dict[str, float]]:
+    """
+    Build the TF-IDF vectors once per dataframe.
+
+    At 878 occupations and 17,590 tasks, tokenising the whole corpus takes
+    long enough that doing it per request is not viable — and the agent calls
+    this several times in a single run. `load_tasks_df` is itself cached and
+    returns the same object every time, so identity is a sound cache key; the
+    cache is cleared rather than grown when that object changes.
+    """
+    key = id(df)
+    cached = _VECTOR_CACHE.get(key)
+    if cached is None:
+        _VECTOR_CACHE.clear()
+        cached = _tfidf_vectors(occupation_task_profiles(df))
+        _VECTOR_CACHE[key] = cached
+    return cached
+
+
+def overlap_map(df: pd.DataFrame, soc_code: str) -> dict[str, float]:
+    """
+    Task-text overlap of every occupation against one, as percentages.
+
+    Separate from find_adjacent_occupations because the caller usually wants
+    overlaps for a handful of known occupations, and scoring all 878 to get
+    them would be absurd.
+    """
+    vectors = _vectors_for(df)
+    if soc_code not in vectors:
+        raise ValueError(f"No tasks found for SOC code {soc_code}")
+    source = vectors[soc_code]
+    return {
+        other: round(_cosine(source, vector) * 100, 1)
+        for other, vector in vectors.items()
+        if other != soc_code
+    }
+
+
 def find_adjacent_occupations(
     df: pd.DataFrame, soc_code: str, limit: int = 4
 ) -> list[dict]:
@@ -100,33 +141,31 @@ def find_adjacent_occupations(
     which moves are actually upward. Sorted by overlap, not by delta — a
     high-resilience job you share nothing with is not a career path.
     """
-    profiles = occupation_task_profiles(df)
-    if soc_code not in profiles:
-        raise ValueError(f"No tasks found for SOC code {soc_code}")
-
-    vectors = _tfidf_vectors(profiles)
+    overlaps = overlap_map(df, soc_code)
     source_score = score_occupation(df, soc_code).resilience_score
 
+    # Rank first, score second. score_occupation filters the full task table,
+    # so scoring every candidate before ranking would mean 878 scans of
+    # 17,590 rows to return four results.
+    ranked = sorted(
+        ((code, pct) for code, pct in overlaps.items() if pct > 0),
+        key=lambda pair: pair[1],
+        reverse=True,
+    )[:limit]
+
     neighbours = []
-    for other_code, vector in vectors.items():
-        if other_code == soc_code:
-            continue
-        overlap = _cosine(vectors[soc_code], vector)
-        if overlap <= 0:
-            continue
+    for other_code, overlap_pct in ranked:
         other = score_occupation(df, other_code)
         neighbours.append(
             {
                 "soc_code": other_code,
                 "title": other.occupation_title,
-                "overlap_pct": round(overlap * 100, 1),
+                "overlap_pct": overlap_pct,
                 "resilience_score": other.resilience_score,
                 "resilience_delta": other.resilience_score - source_score,
             }
         )
-
-    neighbours.sort(key=lambda n: n["overlap_pct"], reverse=True)
-    return neighbours[:limit]
+    return neighbours
 
 
 def compare_occupations(df: pd.DataFrame, soc_a: str, soc_b: str) -> dict:

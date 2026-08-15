@@ -31,6 +31,16 @@ ECONOMIC_INDEX_WEIGHTS = {
     "none": 0.0,
 }
 
+# The Economic Index observes real Claude usage, and it does not cover every
+# O*NET task — roughly one in six at the 2025-03-27 release. An unobserved
+# task is labelled "unknown", which is emphatically NOT "none": "none" means
+# usage was measured and was minimal, "unknown" means nothing was measured.
+#
+# Treating them the same would score 80% of the corpus as fully resilient on
+# the observed-usage half of the composite, which is the single easiest way
+# to make this product confidently wrong.
+UNKNOWN_LABEL = "unknown"
+
 
 @dataclass
 class TaskScore:
@@ -41,6 +51,7 @@ class TaskScore:
     composite_exposure: float  # 0-1, higher = more exposed
     onet_importance: float
     onet_frequency: float
+    has_economic_index: bool  # False when only the Eloundou measure applies
 
 
 @dataclass
@@ -52,25 +63,40 @@ class OccupationResilience:
     at_risk_tasks: list
     resilient_tasks: list
     all_tasks: list
+    # Share of this occupation's tasks with real observed-usage data behind
+    # them. Surfaced rather than hidden: a score built on 10% coverage
+    # deserves less confidence than one built on 90%, and the reader is
+    # entitled to know which they are looking at.
+    economic_index_coverage: float
 
 
 def score_tasks(tasks_df: pd.DataFrame) -> list[TaskScore]:
     """Compute a composite exposure score for every task row."""
     scores = []
     for _, row in tasks_df.iterrows():
-        econ_weight = ECONOMIC_INDEX_WEIGHTS.get(
-            str(row["economic_index_label"]).lower(), 0.0
-        )
-        composite = (econ_weight + float(row["eloundou_beta"])) / 2.0
+        label = str(row["economic_index_label"]).lower()
+        beta = float(row["eloundou_beta"])
+        has_ei = label in ECONOMIC_INDEX_WEIGHTS
+
+        if has_ei:
+            # Both measures agree on a scale, so average them: a task scores
+            # high only when observed usage and theoretical capability concur.
+            composite = (ECONOMIC_INDEX_WEIGHTS[label] + beta) / 2.0
+        else:
+            # No observation exists. Fall back to the measure we do have
+            # rather than averaging against a zero we cannot justify.
+            composite = beta
+
         scores.append(
             TaskScore(
                 task_id=row["task_id"],
                 task_description=row["task_description"],
                 economic_index_label=row["economic_index_label"],
-                eloundou_beta=float(row["eloundou_beta"]),
+                eloundou_beta=beta,
                 composite_exposure=round(composite, 3),
                 onet_importance=float(row["onet_importance"]),
                 onet_frequency=float(row["onet_frequency"]),
+                has_economic_index=has_ei,
             )
         )
     return scores
@@ -107,6 +133,8 @@ def aggregate_occupation(
         key=lambda t: t.composite_exposure,
     )
 
+    covered = sum(1 for t in task_scores if t.has_economic_index)
+
     return OccupationResilience(
         soc_code=soc_code,
         occupation_title=occupation_title,
@@ -115,6 +143,7 @@ def aggregate_occupation(
         at_risk_tasks=at_risk,
         resilient_tasks=resilient,
         all_tasks=task_scores,
+        economic_index_coverage=round(covered / len(task_scores), 3) if task_scores else 0.0,
     )
 
 

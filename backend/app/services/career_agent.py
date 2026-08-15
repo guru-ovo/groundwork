@@ -29,7 +29,7 @@ import pandas as pd
 
 from app.services.featherless_client import chat_json, STRONG_MODEL
 from app.services.scoring import score_occupation
-from app.services.similarity import compare_occupations, find_adjacent_occupations
+from app.services.similarity import compare_occupations, find_adjacent_occupations, overlap_map
 
 logger = logging.getLogger("groundwork")
 
@@ -167,10 +167,9 @@ def _attach_authoritative_scores(df: pd.DataFrame, final: dict, soc_code: str) -
     occupation. Anything the model wrote in those fields is overwritten.
     """
     valid = set(df["soc_code"].astype(str).unique())
-    overlaps = {
-        n["soc_code"]: n["overlap_pct"]
-        for n in find_adjacent_occupations(df, soc_code, limit=len(valid))
-    }
+    # overlap_map, not find_adjacent_occupations: we need overlaps for a few
+    # named occupations, and the latter would score all 878 to produce them.
+    overlaps = overlap_map(df, soc_code)
 
     clean_path = []
     for node in final.get("path", []):
