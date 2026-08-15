@@ -114,8 +114,8 @@ export default function App() {
 
       {status === 'error' && (
         <p className="status status--error">
-          Something went wrong. Check that the backend is running on
-          localhost:8000.
+          Couldn't reach the scoring service. It may be waking up — try again in
+          a moment.
         </p>
       )}
     </div>
