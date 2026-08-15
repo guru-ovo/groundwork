@@ -119,7 +119,15 @@ def _first_json_object(content: str) -> dict:
             except json.JSONDecodeError:
                 end = candidate.rfind("}", 0, end)
         else:
-            raise ValueError(str(first_error)) from first_error
+            # Surface the text around the break. Without it, "Expecting ','
+            # delimiter at char 851" says nothing about whether the model
+            # truncated, emitted prose, or wrote an unescaped quote — three
+            # problems with three different fixes.
+            pos = getattr(first_error, "pos", 0)
+            window = candidate[max(0, pos - 90): pos + 90].replace("\n", "\\n")
+            raise ValueError(
+                f"{first_error} | around: …{window}…"
+            ) from first_error
 
     if not isinstance(value, dict):
         raise ValueError(f"expected an object, got {type(value).__name__}")
