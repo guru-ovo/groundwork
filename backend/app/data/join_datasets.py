@@ -123,6 +123,54 @@ def load_onet(onet_dir: Path) -> pd.DataFrame:
     return df
 
 
+# O*NET's RIASEC (Holland) interest dimensions, on a 1-7 occupational
+# interest scale. Published per occupation, so an interest match is real data
+# rather than a model's opinion about what someone would enjoy.
+RIASEC_ELEMENTS = {
+    "1.B.1.a": "realistic",
+    "1.B.1.b": "investigative",
+    "1.B.1.c": "artistic",
+    "1.B.1.d": "social",
+    "1.B.1.e": "enterprising",
+    "1.B.1.f": "conventional",
+}
+
+
+def build_interests(onet_dir: Path) -> pd.DataFrame:
+    """
+    One RIASEC profile per occupation, wide format.
+
+    Task overlap answers "could this person do the job". It says nothing
+    about whether they would want to, which is the difference between a
+    career path someone follows and one they abandon. O*NET measures the
+    second thing directly, so it costs nothing to be honest about it.
+    """
+    raw = pd.read_csv(
+        onet_dir / "Interests.txt", sep="\t", dtype=str, quoting=csv.QUOTE_NONE,
+    ).rename(columns={
+        "O*NET-SOC Code": "soc_code",
+        "Element ID": "element_id",
+        "Scale ID": "scale",
+        "Data Value": "value",
+    })
+
+    # Scale OI is the occupational interest score. The other scales in this
+    # file are high-point codes, which are derived from it.
+    raw = raw[(raw["scale"] == "OI") & (raw["element_id"].isin(RIASEC_ELEMENTS))]
+    raw["value"] = pd.to_numeric(raw["value"], errors="coerce")
+    raw["dimension"] = raw["element_id"].map(RIASEC_ELEMENTS)
+
+    wide = raw.pivot_table(
+        index="soc_code", columns="dimension", values="value", aggfunc="mean"
+    ).reset_index()
+
+    missing = [d for d in RIASEC_ELEMENTS.values() if d not in wide.columns]
+    if missing:
+        raise ValueError(f"Interests.txt missing dimensions: {missing}")
+
+    return wide[["soc_code", *sorted(RIASEC_ELEMENTS.values())]].round(2)
+
+
 def load_eloundou(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, sep="\t", dtype=str, quoting=csv.QUOTE_NONE)
     df = df.rename(columns={
@@ -209,6 +257,8 @@ def main() -> int:
     parser.add_argument("--econ-index", type=Path, required=True,
                         help="automation_vs_augmentation_by_task.csv")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--interests-out", type=Path,
+                        help="where to write the per-occupation RIASEC profiles")
     parser.add_argument("--min-tasks", type=int, default=5)
     args = parser.parse_args()
 
@@ -226,6 +276,11 @@ def main() -> int:
     print(f"\nwrote {args.out}")
     print(f"  {len(df):,} tasks · {df['soc_code'].nunique():,} occupations "
           f"· {args.out.stat().st_size / 1e6:.1f} MB")
+    if args.interests_out:
+        interests = build_interests(args.onet_dir)
+        interests.to_csv(args.interests_out, index=False)
+        print(f"wrote {args.interests_out}  ({len(interests):,} occupations with RIASEC profiles)")
+
     print(f"  label mix: {df['economic_index_label'].value_counts().to_dict()}")
     uniform = df[df["ratings_source"] == "uniform_prior"]["soc_code"].nunique()
     print(f"  occupations weighted by uniform prior (O*NET has not rated them): {uniform}")

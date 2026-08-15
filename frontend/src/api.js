@@ -57,3 +57,9 @@ export async function getRoadmap(socCode, studentSkills) {
   if (!res.ok) throw new Error('Could not generate roadmap')
   return res.json()
 }
+
+export async function getInterestQuestions() {
+  const res = await fetch(`${BASE_URL}/interests/questions`)
+  if (!res.ok) throw new Error('Could not load the interest questions')
+  return res.json()
+}

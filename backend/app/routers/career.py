@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.config import load_tasks_df
 from app.services.career_agent import run_career_agent
 from app.services.profile_analysis import analyse_answers
+from app.services.interests import DIMENSION_PROMPTS, DIMENSIONS, interest_fit
 from app.services.similarity import compare_occupations, find_adjacent_occupations
 
 logger = logging.getLogger("groundwork")
@@ -31,6 +32,9 @@ class CareerPlanRequest(BaseModel):
     weekly_hours: float | None = Field(default=None, ge=0, le=80)
     budget: Literal["free", "low", "open"] | None = None
     work_values: list[str] = []
+    # RIASEC self-ratings, 1-7 per dimension. Optional: without them the agent
+    # simply loses the interest tool.
+    interests: dict[str, float] = {}
 
 
 def _sse(event: dict) -> str:
@@ -82,6 +86,7 @@ def career_plan_stream(req: CareerPlanRequest):
             "weekly_hours": req.weekly_hours,
             "budget": req.budget,
             "work_values": req.work_values or None,
+            "interests": req.interests or None,
             "answer_reading": reading,
         }
 
@@ -128,3 +133,20 @@ def compare(soc_a: str, soc_b: str):
         return compare_occupations(df, soc_a, soc_b)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.get("/interests/questions")
+def interest_questions():
+    """
+    The six RIASEC prompts, served from the same constant the scorer uses.
+
+    Keeping the questionnaire and the matcher on one source means a renamed
+    dimension cannot silently stop matching.
+    """
+    return {
+        "scale": {"min": 1, "max": 7,
+                  "min_label": "Not for me", "max_label": "Very much me"},
+        "dimensions": [
+            {"key": d, "prompt": DIMENSION_PROMPTS[d]} for d in DIMENSIONS
+        ],
+    }

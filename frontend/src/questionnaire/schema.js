@@ -6,7 +6,18 @@
  * their own option lists.
  */
 
-export const STEP_IDS = ['role', 'skills', 'values', 'time', 'goal', 'review']
+export const STEP_IDS = ['role', 'skills', 'values', 'interests', 'time', 'goal', 'review']
+
+// The six RIASEC dimensions, in O*NET's canonical order. Prompts are fetched
+// from the API so the questionnaire and the matcher cannot drift apart.
+export const INTEREST_KEYS = [
+  'realistic', 'investigative', 'artistic', 'social', 'enterprising', 'conventional',
+]
+
+// Midpoint of O*NET's 1-7 occupational-interest scale. Starting every slider
+// here means an untouched form reads as "no strong preference" rather than as
+// a person who dislikes everything.
+export const INTEREST_DEFAULT = 4
 
 export const STEP_TITLES = {
   role: 'What do you do now?',
@@ -60,6 +71,7 @@ export function emptyAnswers() {
     occupationTitle: '',
     skills: [],
     workValues: [],
+    interests: Object.fromEntries(INTEREST_KEYS.map((k) => [k, INTEREST_DEFAULT])),
     hours: '',
     budget: '',
     goalType: '',
@@ -114,5 +126,6 @@ export function toRequestPayload(answers) {
     weekly_hours: hours ? hours.weeklyHours : null,
     budget: answers.budget || null,
     work_values: answers.workValues,
+    interests: answers.interests,
   }
 }

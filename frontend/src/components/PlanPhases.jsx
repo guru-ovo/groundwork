@@ -50,6 +50,9 @@ export default function PlanPhases({ plan, occupationTitle }) {
                   {!node.is_current && (
                     <span className="plan__meta"> · {node.overlap_pct}% task overlap</span>
                   )}
+                  {node.interest_fit != null && (
+                    <span className="plan__meta"> · {node.interest_fit}% interest fit</span>
+                  )}
                 </span>
                 {node.rationale && <span className="plan__rationale">{node.rationale}</span>}
               </span>

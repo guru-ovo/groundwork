@@ -28,6 +28,7 @@ from typing import Iterator
 import pandas as pd
 
 from app.services.featherless_client import chat_json, STRONG_MODEL
+from app.services.interests import interest_fit, rank_by_interest
 from app.services.scoring import score_occupation
 from app.services.similarity import compare_occupations, find_adjacent_occupations, overlap_map
 
@@ -84,6 +85,39 @@ TOOLS = {
 }
 
 
+def _build_tools(user_interests: dict[str, float] | None) -> dict:
+    """
+    The tool set for one run.
+
+    rank_by_interest needs the person's own RIASEC profile, which is
+    per-request, so tools are assembled per run rather than held at module
+    level. When no profile was given the tool is simply absent — better than
+    offering the agent something that returns nothing.
+    """
+    tools = dict(TOOLS)
+    if not user_interests:
+        return tools
+
+    def _tool_rank_by_interest(df: pd.DataFrame, soc_codes: list[str] | None = None,
+                               limit: int = 8) -> dict:
+        candidates = soc_codes or list(df["soc_code"].astype(str).unique())
+        titles = (
+            df.drop_duplicates("soc_code")
+            .set_index("soc_code")["occupation_title"]
+            .to_dict()
+        )
+        ranked = rank_by_interest(user_interests, candidates)[: int(limit)]
+        return {
+            "ranked": [
+                {**r, "title": titles.get(r["soc_code"], r["soc_code"])}
+                for r in ranked
+            ]
+        }
+
+    tools["rank_by_interest"] = _tool_rank_by_interest
+    return tools
+
+
 SYSTEM_PROMPT = """You are Groundwork's career planning agent.
 
 You help a person whose job is being reshaped by AI find where to go next.
@@ -99,6 +133,9 @@ Available tools:
 - get_occupation {"soc_code": str} -> scores and task breakdown
 - find_adjacent_occupations {"soc_code": str, "limit": int} -> nearby occupations by task overlap
 - compare_occupations {"soc_a": str, "soc_b": str} -> shared tasks and the gap between two occupations
+- rank_by_interest {"soc_codes": [str], "limit": int} -> how well occupations fit the
+  person's own interest profile, 0-100 (only available when they answered the
+  interest questions)
 
 Respond with ONE JSON object per turn, and nothing else.
 
@@ -138,6 +175,11 @@ Rules for the plan:
 - Respect constraints.goal_type. "adapt" stays in the current occupation and
   the path has one node. "move" targets an adjacent occupation. "change"
   targets the most resilient reachable occupation even at lower overlap.
+- If rank_by_interest is available, use it before choosing a destination.
+  Task overlap says the person COULD do a job; interest fit says whether they
+  would want it. A path to work they would hate is a path they abandon.
+  Prefer a slightly lower-overlap target with markedly better interest fit,
+  and say so in the rationale.
 - constraints.answer_reading is an interpretation of the person's own words.
   Treat its hard_constraints as binding and its watch_outs as things your
   plan must avoid."""
@@ -160,7 +202,8 @@ def _build_user_prompt(
     )
 
 
-def _attach_authoritative_scores(df: pd.DataFrame, final: dict, soc_code: str) -> dict:
+def _attach_authoritative_scores(df: pd.DataFrame, final: dict, soc_code: str,
+                                 user_interests: dict[str, float] | None = None) -> dict:
     """
     Replace every number in the agent's output with the computed one.
 
@@ -190,6 +233,8 @@ def _attach_authoritative_scores(df: pd.DataFrame, final: dict, soc_code: str) -
                 "overlap_pct": 100.0 if code == soc_code else overlaps.get(code, 0.0),
                 "rationale": str(node.get("rationale", ""))[:400],
                 "is_current": code == soc_code,
+                # Computed here too, never taken from the model.
+                "interest_fit": interest_fit(user_interests, code) if user_interests else None,
             }
         )
 
@@ -209,7 +254,8 @@ def _attach_authoritative_scores(df: pd.DataFrame, final: dict, soc_code: str) -
     return final
 
 
-def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str]) -> dict:
+def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str],
+                   user_interests: dict[str, float] | None = None) -> dict:
     """
     A plan built entirely from computation, for when the model is unavailable.
 
@@ -224,6 +270,7 @@ def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str]) -> dict:
         "soc_code": soc_code, "title": current.occupation_title,
         "resilience_score": current.resilience_score, "overlap_pct": 100.0,
         "rationale": "Where you are now.", "is_current": True,
+        "interest_fit": interest_fit(user_interests, soc_code) if user_interests else None,
     }]
     phases = [{
         "window": "0-3 months",
@@ -249,9 +296,13 @@ def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str]) -> dict:
 
     if neighbours:
         target = neighbours[0]
-        path.append({**target, "rationale":
-                     f"Closest adjacent role by task overlap ({target['overlap_pct']}%).",
-                     "is_current": False})
+        path.append({
+            **target,
+            "rationale": f"Closest adjacent role by task overlap ({target['overlap_pct']}%).",
+            "is_current": False,
+            "interest_fit": (interest_fit(user_interests, target["soc_code"])
+                             if user_interests else None),
+        })
         gap = compare_occupations(df, soc_code, target["soc_code"])
         phases.append({
             "window": "9-18 months",
@@ -318,6 +369,8 @@ def run_career_agent(
       {"type": "error", "message": str}   (only for unrecoverable failures)
     """
     occupation = _tool_get_occupation(df, soc_code)
+    user_interests = (profile or {}).get("interests") or None
+    tools = _build_tools(user_interests)
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -332,13 +385,13 @@ def run_career_agent(
             yield {"type": "step", "n": step, "thought": "Model unavailable — "
                    "falling back to computed planning.", "tool": "fallback",
                    "observation": str(exc)[:200]}
-            yield {"type": "final", "plan": _fallback_plan(df, soc_code, skills)}
+            yield {"type": "final", "plan": _fallback_plan(df, soc_code, skills, user_interests)}
             return
 
         thought = str(reply.get("thought", ""))[:300]
 
         if "final" in reply and reply["final"]:
-            plan = _attach_authoritative_scores(df, reply["final"], soc_code)
+            plan = _attach_authoritative_scores(df, reply["final"], soc_code, user_interests)
             plan["generated_by"] = "agent"
             yield {"type": "step", "n": step, "thought": thought,
                    "tool": "write_plan", "observation": "Plan drafted from the data gathered."}
@@ -348,16 +401,16 @@ def run_career_agent(
         tool_name = reply.get("tool")
         args = reply.get("args") or {}
 
-        if tool_name not in TOOLS:
+        if tool_name not in tools:
             # Don't burn a step on a malformed turn — correct it and retry.
             messages.append({"role": "assistant", "content": json.dumps(reply)})
             messages.append({"role": "user", "content":
                              f"Unknown tool {tool_name!r}. Choose one of: "
-                             f"{', '.join(TOOLS)}. Reply with one JSON object."})
+                             f"{', '.join(tools)}. Reply with one JSON object."})
             continue
 
         try:
-            observation = TOOLS[tool_name](df, **args)
+            observation = tools[tool_name](df, **args)
             summary = _summarise(tool_name, observation)
         except Exception as exc:
             observation = {"error": str(exc)}
@@ -372,7 +425,7 @@ def run_career_agent(
 
     # Ran out of steps without a plan — still give the user something real.
     logger.warning("Agent hit max_steps without a final plan")
-    yield {"type": "final", "plan": _fallback_plan(df, soc_code, skills)}
+    yield {"type": "final", "plan": _fallback_plan(df, soc_code, skills, user_interests)}
 
 
 def _summarise(tool_name: str, observation: dict) -> str:

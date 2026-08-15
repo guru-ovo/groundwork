@@ -76,3 +76,42 @@
 @media (prefers-reduced-motion: reduce) {
   .qn__tick, .qn__choice { transition: none; }
 }
+
+/* --- Interests (RIASEC) --------------------------------------------------- */
+
+.interests { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 18px; }
+
+.interests__item { display: flex; flex-direction: column; gap: 8px; }
+
+.interests__prompt { font-size: 15px; line-height: 1.4; cursor: pointer; }
+
+.interests__control {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.interests__end { font-size: 11px; color: var(--ink-dim); white-space: nowrap; }
+
+.interests__value {
+  font-family: var(--display);
+  font-size: 16px;
+  color: var(--moss);
+  min-width: 1.4em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.interests input[type='range'] {
+  width: 100%;
+  accent-color: var(--moss);
+  background: transparent;
+  cursor: pointer;
+}
+
+@media (max-width: 460px) {
+  .interests__control { grid-template-columns: 1fr auto; }
+  .interests__end { display: none; }
+  .interests input[type='range'] { grid-column: 1; }
+}

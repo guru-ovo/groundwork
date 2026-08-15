@@ -9,6 +9,7 @@ import {
 import RoleStep from './steps/RoleStep'
 import SkillsStep from './steps/SkillsStep'
 import ValuesStep from './steps/ValuesStep'
+import InterestsStep from './steps/InterestsStep'
 import TimeStep from './steps/TimeStep'
 import GoalStep from './steps/GoalStep'
 import ReviewStep from './steps/ReviewStep'
@@ -18,6 +19,7 @@ const STEP_COMPONENTS = {
   role: RoleStep,
   skills: SkillsStep,
   values: ValuesStep,
+  interests: InterestsStep,
   time: TimeStep,
   goal: GoalStep,
   review: ReviewStep,
