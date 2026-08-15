@@ -345,13 +345,31 @@ def _reply_with_retry(messages: list[dict]) -> dict:
         try:
             return chat_json(messages, model=STRONG_MODEL)
         except TruncatedResponse as exc:
-            # The provider cut the body short. The request was fine, so send
-            # it again unchanged — telling the model to "be terse" would be
-            # answering a question it was never asked.
+            # The envelope is malformed mid-body, with bytes after the break
+            # and a 200 status — the provider is failing to escape the model's
+            # content when it serialises the response. Resending unchanged
+            # reproduces it exactly (observed three times in a row), so each
+            # retry asks for a smaller, plainer answer instead: less content
+            # means fewer characters that can break the encoder.
             last_error = exc
-            logger.warning("Truncated response from Featherless (attempt %d): %s",
+            logger.warning("Malformed response envelope (attempt %d): %s",
                            attempt + 1, exc)
-            time.sleep(0.6 * (attempt + 1))
+            budget = max(600, 2500 // (attempt + 2))
+            messages = messages + [{
+                "role": "user",
+                "content": "Your last reply could not be delivered. Reply with ONE "
+                           "compact JSON object. Use only plain ASCII letters, "
+                           "digits, spaces, commas and full stops inside string "
+                           "values — no quotes, no newlines, no dashes, no "
+                           "symbols. At most 2 milestones per window, one short "
+                           "sentence each.",
+            }]
+            time.sleep(0.4 * (attempt + 1))
+            try:
+                return chat_json(messages, model=STRONG_MODEL, max_tokens=budget)
+            except Exception as retry_exc:
+                last_error = retry_exc
+                continue
         except ValueError as exc:
             # The model genuinely wrote malformed JSON. Ask for something
             # smaller, once.
