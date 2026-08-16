@@ -702,7 +702,10 @@ button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 /* The table scrolls inside its own box; the page never scrolls sideways. */
 .breakdown__scroll { overflow-x: auto; }
 
-.tbl { width: 100%; min-width: 720px; border-collapse: collapse; }
+/* Wide enough that the Economic Index column can print its label in full.
+   Below this the cells compress, and `white-space: nowrap` pushes the text
+   out of the cell where the scroll container clips it to a single letter. */
+.tbl { width: 100%; min-width: 880px; border-collapse: collapse; }
 .tbl thead th {
   padding: 0 var(--sp-6) 12px 0;
   font-family: var(--mono);
@@ -743,7 +746,7 @@ button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 }
 .tbl__pct { font-family: var(--mono); font-size: 12.5px; color: var(--moss); font-variant-numeric: tabular-nums; }
 .tbl__pct.is-high { color: var(--amber); }
-.tbl__ei { font-size: 11px !important; }
+.tbl__ei { font-size: 11px !important; min-width: 104px; padding-right: 0 !important; }
 .tbl__ei.is-absent { color: var(--ink-faint); }
 
 .breakdown__note {

@@ -246,10 +246,13 @@ Rules for the plan:
 - constraints.answer_reading is an interpretation of the person's own words.
   Treat its hard_constraints as binding and its watch_outs as things your
   plan must avoid.
-- summary states the finding in figures: how many tasks are exposed out of how
-  many, and what the plan does about it. No hype, no reassurance you cannot
-  support, and never a prediction of job loss — the data measures observed
-  usage today, not the future."""
+- summary says what the plan DOES, in two or three sentences. Do NOT restate
+  how many tasks are exposed or how many exist — the page already prints those
+  counts, computed, directly above your summary, and a figure you recall
+  slightly wrong sits next to the true one and contradicts it. Name the
+  approach and the tasks it targets, not the arithmetic. No hype, no
+  reassurance you cannot support, and never a prediction of job loss — the
+  data measures observed usage today, not the future."""
 
 
 def _build_user_prompt(
