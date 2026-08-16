@@ -138,17 +138,23 @@ export default function App() {
                   weeklyHours={weeklyHours}
                   onStartOver={startOver}
                 />
-                <TaskBreakdown resilience={resilience} />
               </>
             )}
 
             {finished && error && resilience && (
               <>
                 <ResultsReport resilience={resilience} plan={null} weeklyHours={weeklyHours} onStartOver={startOver} />
-                <TaskBreakdown resilience={resilience} />
               </>
             )}
           </div>
+
+          {/* Six columns of numerics do not fit the stream column. The table
+              spans the whole card instead, where it can be read across. */}
+          {finished && resilience && (
+            <div className="run__wide">
+              <TaskBreakdown resilience={resilience} />
+            </div>
+          )}
 
           {finished && (
             <div className="run__foot">
