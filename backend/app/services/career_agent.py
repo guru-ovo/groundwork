@@ -23,6 +23,7 @@ is the same bar we already rely on for JSON mode.
 
 import json
 import logging
+import re
 import time
 import traceback
 from typing import Iterator
@@ -44,20 +45,27 @@ MAX_STEPS = 5
 
 def _tool_get_occupation(df: pd.DataFrame, soc_code: str) -> dict:
     result = score_occupation(df, soc_code)
+
+    # Labels are normalised here, at the boundary where the agent first sees
+    # them. The model copies tool output verbatim into its citations, so
+    # handing it the raw "unknown" is how "label=unknown" ends up quoted back
+    # to the reader as though it were a measurement. It is not one: it means
+    # the Economic Index has not observed this task.
+    def task(t) -> dict:
+        return {
+            "task_id": t.task_id,
+            "task": t.task_description,
+            "label": _readable_label(t.economic_index_label),
+            "beta": t.eloundou_beta,
+            "exposure": t.composite_exposure,
+        }
+
     return {
         "soc_code": result.soc_code,
         "title": result.occupation_title,
         "resilience_score": result.resilience_score,
-        "at_risk_tasks": [
-            {"task_id": t.task_id, "task": t.task_description,
-             "label": t.economic_index_label, "beta": t.eloundou_beta}
-            for t in result.at_risk_tasks
-        ],
-        "resilient_tasks": [
-            {"task_id": t.task_id, "task": t.task_description,
-             "label": t.economic_index_label, "beta": t.eloundou_beta}
-            for t in result.resilient_tasks
-        ],
+        "at_risk_tasks": [task(t) for t in result.at_risk_tasks],
+        "resilient_tasks": [task(t) for t in result.resilient_tasks],
     }
 
 
@@ -66,7 +74,14 @@ def _tool_find_adjacent(df: pd.DataFrame, soc_code: str, limit: int = 4) -> dict
 
 
 def _tool_compare(df: pd.DataFrame, soc_a: str, soc_b: str) -> dict:
-    return compare_occupations(df, soc_a, soc_b)
+    """Gap tasks are citable, so normalise their labels here too — same reason
+    as _tool_get_occupation: whatever the agent reads, it will quote."""
+    result = compare_occupations(df, soc_a, soc_b)
+    for key in ("gap_tasks", "shared_tasks"):
+        for t in result.get(key, []) or []:
+            if "economic_index_label" in t:
+                t["economic_index_label"] = _readable_label(t["economic_index_label"])
+    return result
 
 
 def _tool_list_occupations(df: pd.DataFrame) -> dict:
@@ -155,25 +170,71 @@ When you have enough to write the plan:
    "summary": "<2-3 sentences to the person, plain language, no hype>",
    "path": [{"soc_code": "...", "title": "...", "rationale": "<why this step>"}],
    "phases": [
-     {"window": "0-3 months",
-      "milestones": [{"action": "...", "reason": "...",
-                      "data_source": "<task ids and the label/beta that justify this>"}]},
-     {"window": "3-9 months", "milestones": [...]},
-     {"window": "9-18 months", "milestones": [...]}
+     {"window": "0-3 months", "load": "<hrs/wk, e.g. 3 hrs/wk>",
+      "milestones": [{"action": "...", "done_when": "...", "effort": "...",
+                      "reason": "...", "data_source": "..."}]},
+     {"window": "3-9 months", "load": "...", "milestones": [...]},
+     {"window": "9-18 months", "load": "...", "milestones": [...]}
    ]}}
+
+WRITING A MILESTONE
+
+Each milestone has five fields. They do different jobs; do not blur them.
+
+action     What they DO. Imperative, one line, at most 20 words. Name the
+           artefact produced and how often. It must be something a person
+           could start on Monday and someone else could watch them do.
+done_when  How they know it is finished. An observable test, at most 15
+           words. Never a feeling, never 'understand X'. If you cannot state
+           a check, the action is too vague — rewrite the action.
+effort     Hours per week this costs, as a short string like 2 hrs/wk. The
+           milestones in one window must sum to at most constraints.weekly_hours.
+reason     Why THIS person, from THEIR data. Name the figure that drives it
+           and what it means. At most 25 words.
+data_source The receipt. Start with the task id or ids, then the measures
+           that justify the claim. Format: task 21824 label=automation
+           beta=1.0. Nothing else belongs in this field.
+
+BANNED in action and done_when, because they cannot be checked:
+learn, explore, familiarise, understand, get comfortable with, dive into,
+upskill, leverage, master, become proficient, keep up with, stay current,
+build awareness, gain exposure. If you write one, replace it with the
+observable thing that would prove it happened.
+
+WEAK vs SPECIFIC
+
+weak:     action: Learn prompt engineering to stay relevant.
+          reason: AI is changing data science.
+          data_source: various tasks
+
+specific: action: Rewrite one recurring cleaning script per fortnight as a
+                  reviewed model-assisted diff.
+          done_when: Three merged diffs, each reviewed by a colleague.
+          effort: 2 hrs/wk
+          reason: Cleaning is your most exposed task at beta 1.0, and review
+                  is the part the measure does not cover.
+          data_source: task 21824 label=automation beta=1.0
 
 Rules for the plan:
 - path starts with the person's current occupation and ends at the destination.
-- Every milestone cites specific task IDs in data_source. No citation, no milestone.
-- 2-3 milestones per window. Concrete actions, not "learn AI".
+- Every milestone cites at least one real task id in data_source. No citation,
+  no milestone. Use only task ids a tool actually returned to you.
+- Exactly 2 milestones per window. Two sharp ones beat four vague ones, and a
+  long reply risks being cut off in transit.
+- Vary the milestones. Do not restate one action three times at different
+  scales, and do not give two windows the same data_source.
 - Take the person's existing skills into account: do not tell them to learn
-  what they already listed.
+  what they already listed. If a milestone builds on a skill they have, say
+  which one in reason.
+- Name resources concretely when a milestone needs one: the actual doc,
+  standard, dataset or tool, not 'an online course'.
 - Investigate before concluding. Use at least two tools.
 - Respect constraints.weekly_hours. Size every milestone to fit it. Someone
   with 1 hour a week gets a genuinely different plan from someone with 12,
-  not the same plan with a longer deadline.
+  not the same plan with a longer deadline. The effort fields prove you did.
 - Respect constraints.budget. "free" means free resources only — never
-  recommend a paid course to someone who said free.
+  recommend a paid course to someone who said free. If the shortest path is
+  genuinely paid, say why in reason and give the free alternative too.
 - Respect constraints.goal_type. "adapt" stays in the current occupation and
   the path has one node. "move" targets an adjacent occupation. "change"
   targets the most resilient reachable occupation even at lower overlap.
@@ -184,7 +245,11 @@ Rules for the plan:
   and say so in the rationale.
 - constraints.answer_reading is an interpretation of the person's own words.
   Treat its hard_constraints as binding and its watch_outs as things your
-  plan must avoid."""
+  plan must avoid.
+- summary states the finding in figures: how many tasks are exposed out of how
+  many, and what the plan does about it. No hype, no reassurance you cannot
+  support, and never a prediction of job loss — the data measures observed
+  usage today, not the future."""
 
 
 def _build_user_prompt(
@@ -256,6 +321,87 @@ def _attach_authoritative_scores(df: pd.DataFrame, final: dict, soc_code: str,
     return final
 
 
+_TASK_ID_RE = re.compile(r"\b\d{3,7}\b")
+
+
+def _readable_label(label: str) -> str:
+    """
+    Say "not observed" rather than "unknown" in a citation.
+
+    They are the same fact but not the same sentence. "unknown" reads as a gap
+    in our workings; "not observed" says what is actually true — the Economic
+    Index measured this kind of work and saw no usage worth recording, which is
+    evidence, not absence of it. Same distinction scoring.py draws between an
+    unmeasured task and one measured at zero.
+    """
+    return "not observed" if str(label).lower() not in {
+        "automation", "augmentation", "none"} else str(label)
+
+# Verbs that describe a state of mind rather than an act. A milestone built on
+# one of these cannot be checked off, which is the whole point of a milestone.
+_UNVERIFIABLE = (
+    "learn ", "explore", "familiaris", "familiariz", "understand",
+    "get comfortable", "dive into", "upskill", "leverage", "master ",
+    "become proficient", "keep up with", "stay current", "build awareness",
+    "gain exposure",
+)
+
+
+def _enforce_citations(df: pd.DataFrame, final: dict) -> tuple[dict, int]:
+    """
+    Drop any milestone that does not cite a task id that actually exists.
+
+    The prompt asks for a citation on every milestone, but "asked to" is not a
+    guarantee — the same reason `_attach_authoritative_scores` recomputes every
+    figure rather than trusting the model to have copied it. An uncited
+    milestone is exactly the kind of plausible-sounding advice this product
+    exists to not produce, so it does not reach the page.
+
+    Returns the cleaned plan and how many milestones survived, so the caller
+    can decide that a plan citing nothing at all is not a plan.
+    """
+    valid_ids = set(df["task_id"].astype(str))
+    kept_total = 0
+    clean_phases = []
+
+    for phase in final.get("phases", []) or []:
+        kept = []
+        for m in phase.get("milestones", []) or []:
+            source = str(m.get("data_source", ""))
+            cited = [i for i in _TASK_ID_RE.findall(source) if i in valid_ids]
+            if not cited:
+                logger.info("Dropping uncited milestone: %r", str(m.get("action"))[:80])
+                continue
+
+            action = str(m.get("action", "")).strip()[:200]
+            lowered = action.lower()
+            if any(v in lowered for v in _UNVERIFIABLE):
+                # Kept, but flagged: the citation is real, so the milestone is
+                # grounded even where the wording is soft. Logged so the prompt
+                # can be tightened against real output rather than guesses.
+                logger.info("Unverifiable phrasing survived: %r", action[:80])
+
+            kept.append({
+                "action": action,
+                "done_when": str(m.get("done_when", "")).strip()[:160] or None,
+                "effort": str(m.get("effort", "")).strip()[:32] or None,
+                "reason": str(m.get("reason", "")).strip()[:300],
+                "data_source": source.strip()[:200],
+                "task_ids": cited,
+            })
+
+        if kept:
+            clean_phases.append({
+                "window": str(phase.get("window", ""))[:40],
+                "load": str(phase.get("load", "")).strip()[:32] or None,
+                "milestones": kept,
+            })
+            kept_total += len(kept)
+
+    final["phases"] = clean_phases
+    return final, kept_total
+
+
 def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str],
                    user_interests: dict[str, float] | None = None) -> dict:
     """
@@ -274,27 +420,57 @@ def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str],
         "rationale": "Where you are now.", "is_current": True,
         "interest_fit": interest_fit(user_interests, soc_code) if user_interests else None,
     }]
+    def _cite(t) -> str:
+        label = _readable_label(t.economic_index_label)
+        return f"task {t.task_id} label={label} beta={t.eloundou_beta}"
+
     phases = [{
         "window": "0-3 months",
+        "load": "matched to the hours you gave",
         "milestones": [
             {
-                "action": f"Reduce time spent on: {t.task_description}",
-                "reason": f"Highest measured exposure in your role ({t.economic_index_label}, beta {t.eloundou_beta}).",
-                "data_source": f"{t.task_id} label={t.economic_index_label} beta={t.eloundou_beta}",
+                "action": f"Move this task behind a review step: {t.task_description}",
+                "done_when": "Three consecutive weeks done this way, each reviewed.",
+                "effort": None,
+                "reason": (
+                    f"Exposure {t.composite_exposure:.2f}, the "
+                    f"{'highest' if i == 0 else 'next highest'} measured in your role."
+                ),
+                "data_source": _cite(t),
+                "task_ids": [str(t.task_id)],
             }
-            for t in current.at_risk_tasks[:2]
+            for i, t in enumerate(current.at_risk_tasks[:2])
         ],
     }, {
         "window": "3-9 months",
+        "load": "matched to the hours you gave",
         "milestones": [
             {
-                "action": f"Deepen: {t.task_description}",
-                "reason": f"Measured as holding steady ({t.economic_index_label}, beta {t.eloundou_beta}).",
-                "data_source": f"{t.task_id} label={t.economic_index_label} beta={t.eloundou_beta}",
+                "action": f"Take on more of this work by name: {t.task_description}",
+                "done_when": "You own it for a full cycle, start to finish.",
+                "effort": None,
+                "reason": f"Exposure {t.composite_exposure:.2f} — measured as holding steady.",
+                "data_source": _cite(t),
+                "task_ids": [str(t.task_id)],
             }
             for t in current.resilient_tasks[:2]
         ],
     }]
+
+    # An occupation with nothing below the 0.5 line has no holding column, and
+    # an empty phase reads as a bug rather than as a finding. Say the finding.
+    if not current.resilient_tasks:
+        phases[1]["milestones"] = [{
+            "action": "Choose one exposed task to own the judgement half of.",
+            "done_when": "You are the named reviewer on it for a month.",
+            "effort": None,
+            "reason": (
+                "No task in this occupation scores below 0.5, so there is no "
+                "lower-exposure work to move toward — only work to reshape."
+            ),
+            "data_source": _cite(current.at_risk_tasks[0]),
+            "task_ids": [str(current.at_risk_tasks[0].task_id)],
+        }] if current.at_risk_tasks else []
 
     if neighbours:
         target = neighbours[0]
@@ -308,20 +484,35 @@ def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str],
         gap = compare_occupations(df, soc_code, target["soc_code"])
         phases.append({
             "window": "9-18 months",
+            "load": "matched to the hours you gave",
             "milestones": [
                 {
-                    "action": f"Build capability in: {t['task_description']}",
-                    "reason": f"Required by {target['title']} and not part of your current role.",
-                    "data_source": f"{t['task_id']} label={t['economic_index_label']} beta={t['eloundou_beta']}",
+                    "action": f"Produce one piece of real work doing: {t['task_description']}",
+                    "done_when": f"One finished example you could show a {target['title'][:40]} hiring manager.",
+                    "effort": None,
+                    "reason": (
+                        f"{target['title']} does this and your current role does not — "
+                        f"it is part of the {100 - target['overlap_pct']:.0f}% gap."
+                    ),
+                    "data_source": (
+                        f"task {t['task_id']} label={_readable_label(t['economic_index_label'])} "
+                        f"beta={t['eloundou_beta']}"
+                    ),
+                    "task_ids": [str(t["task_id"])],
                 }
                 for t in gap["gap_tasks"][:2]
             ],
         })
 
+    exposed = len(current.at_risk_tasks)
+    total = exposed + len(current.resilient_tasks)
+
     return {
         "summary": (
-            f"{current.occupation_title} scores {current.resilience_score}/100 on task "
-            f"resilience. This plan was computed directly from the task data."
+            f"{exposed} of your {total} tasks sit above the 0.5 exposure line, giving "
+            f"{current.occupation_title} a resilience score of {current.resilience_score}/100. "
+            f"Every milestone below names the task it came from. This plan was computed "
+            f"directly from the task data, without a language model."
         ),
         "path": path,
         "phases": phases,
@@ -431,9 +622,26 @@ def run_career_agent(
 
         if "final" in reply and reply["final"]:
             plan = _attach_authoritative_scores(df, reply["final"], soc_code, user_interests)
+            plan, cited = _enforce_citations(df, plan)
+
+            if cited == 0:
+                # Every milestone was uncited or cited a task id that does not
+                # exist. That is not a thin plan, it is an ungrounded one, and
+                # the computed fallback is strictly more honest than shipping it.
+                logger.warning("Agent plan had no verifiable citations; using fallback")
+                yield {"type": "step", "n": step, "thought": thought,
+                       "tool": "write_plan",
+                       "observation": "No milestone cited a real task — falling back to "
+                                      "the computed plan."}
+                yield {"type": "final",
+                       "plan": _fallback_plan(df, soc_code, skills, user_interests)}
+                return
+
             plan["generated_by"] = "agent"
             yield {"type": "step", "n": step, "thought": thought,
-                   "tool": "write_plan", "observation": "Plan drafted from the data gathered."}
+                   "tool": "write_plan",
+                   "observation": f"Plan drafted from the data gathered — "
+                                  f"{cited} milestones, each citing a real task."}
             yield {"type": "final", "plan": plan}
             return
 
