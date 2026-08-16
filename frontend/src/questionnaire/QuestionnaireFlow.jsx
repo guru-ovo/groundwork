@@ -49,8 +49,10 @@ const STEP_LEDES = {
     "Pick two. These are O*NET's own six work values, so your answer is citable " +
     'rather than invented.',
   interests:
-    "Six RIASEC dimensions, on O*NET's 1–7 scale. Leave one in the middle and it " +
-    'reads as no strong preference.',
+    'The only question here about what you would enjoy rather than what you can ' +
+    "do. Six RIASEC dimensions on O*NET's 1–7 scale — it publishes the same six " +
+    'measures for every occupation, so the fit is measured, not guessed. Leave ' +
+    'one in the middle and it reads as no strong preference.',
   time:
     'Milestones get sized against this, so a plan for two hours a week is not the ' +
     'same plan scaled down.',

@@ -23,9 +23,6 @@ function RadioGroup({ legend, name, options, value, onChange }) {
 export default function TimeStep({ answers, update }) {
   return (
     <div className="qn__step">
-      <p className="qn__hint">
-        This changes the plan itself, not just its deadline.
-      </p>
       <RadioGroup
         legend="Time you can give this"
         name="hours"

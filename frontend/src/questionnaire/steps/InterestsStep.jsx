@@ -48,12 +48,6 @@ export default function InterestsStep({ answers, update }) {
 
   return (
     <div className="qn__step">
-      <p className="qn__hint">
-        How much does each of these sound like you? This is the only question
-        here about what you'd enjoy rather than what you can do — O*NET
-        publishes the same six measures for every occupation, so the match is
-        measured, not guessed.
-      </p>
 
       <ul className="interests">
         {INTEREST_KEYS.map((key) => {
