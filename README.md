@@ -383,11 +383,12 @@ no database, and the questionnaire lives in your session.
 
 ## Licence
 
-**No licence has been chosen yet** — there is no `LICENSE` file and
-`package.json` declares none, which by default means all rights reserved. If
-this is going public, add one. The bundled data remains under the licences of
-its sources above regardless of what the code is licensed as; O\*NET's CC BY 4.0
-attribution requirement is satisfied in the site footer and in this file.
+Source code is [MIT](LICENSE).
+
+The bundled dataset is **not** covered by that licence — it is derived from the
+three sources above and keeps their terms. O\*NET is CC BY 4.0, and that
+attribution requirement is satisfied in the site footer, in this file, and in
+`LICENSE`. Redistributing this repository does not relicense the data.
 
 See [`SECURITY.md`](SECURITY.md) for the deployment checklist — API-key
 handling, CORS, and rate limiting, ordered by actual risk rather than as a
