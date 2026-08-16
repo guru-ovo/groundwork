@@ -98,8 +98,12 @@ export function validateStep(stepId, answers) {
     errors.push('Add at least one thing you can already do.')
   }
 
+  // Fires when nothing is chosen, so it has to name the floor, not the cap.
+  // "Choose up to 2" told someone who had picked none about a limit they were
+  // nowhere near — and the cap is already enforced by disabling the remaining
+  // cards, so it never needed an error message at all.
   if (stepId === 'values' && answers.workValues.length === 0) {
-    errors.push(`Choose up to ${MAX_VALUES}.`)
+    errors.push('Choose at least one — two if you can.')
   }
 
   if (stepId === 'time') {
