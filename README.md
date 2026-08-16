@@ -154,6 +154,49 @@ agent run and rendered the moment it lands. When plan generation fails the page
 says *"Your score survived. The plan didn't."* and keeps the number, the task
 breakdown and the full table — because none of them ever needed the model.
 
+### Check the claim yourself
+
+Do not take the above on trust. Three commands, about thirty seconds.
+
+**1. No model call exists anywhere in the scoring path.**
+
+```bash
+grep -rn "featherless\|chat_json\|requests\." \
+  backend/app/services/scoring.py \
+  backend/app/services/similarity.py \
+  backend/app/services/interests.py
+```
+
+No output. The three modules that produce every number on the page cannot
+reach a network, let alone a model.
+
+**2. The score computes without the model client even being imported.**
+
+```bash
+cd backend && ./venv/bin/python -c "
+import sys
+from app.config import load_tasks_df
+from app.services.scoring import score_occupation
+r = score_occupation(load_tasks_df(), '13-1071.00')
+print(r.occupation_title, r.resilience_score)
+print('model client loaded:', 'app.services.featherless_client' in sys.modules)
+"
+```
+
+```
+Human Resources Specialists 44
+model client loaded: False
+```
+
+**3. The API key never reaches the browser.**
+
+```bash
+grep -ric "featherless\|rc_" frontend/dist/assets/*.js
+```
+
+`0`. The key is read server-side only; the frontend talks exclusively to this
+project's own backend.
+
 ---
 
 ## Honest limitations
@@ -221,6 +264,21 @@ npm run dev
 > rather than silently moving to 5174. That is deliberate: the backend allows
 > exactly one dev origin, and a silent port change makes every request fail CORS
 > preflight in a way that looks like a broken backend.
+
+### Trying the deployed version instead
+
+The backend runs on Render's free tier, which **spins down after inactivity**.
+The first request after a quiet period takes roughly **40 seconds** while the
+instance wakes — measured, not estimated. Nothing is broken; it is cold.
+
+Wake it before you need it:
+
+```bash
+curl -s https://groundwork-api-92jh.onrender.com/health
+```
+
+For a live demo, run locally. Cold-start latency is the one thing about this
+stack that looks like a bug and is not.
 
 ### Without an API key
 
