@@ -238,11 +238,16 @@ Rules for the plan:
 - Respect constraints.goal_type. "adapt" stays in the current occupation and
   the path has one node. "move" targets an adjacent occupation. "change"
   targets the most resilient reachable occupation even at lower overlap.
-- If rank_by_interest is available, use it before choosing a destination.
-  Task overlap says the person COULD do a job; interest fit says whether they
-  would want it. A path to work they would hate is a path they abandon.
-  Prefer a slightly lower-overlap target with markedly better interest fit,
-  and say so in the rationale.
+- Never pick a destination whose resilience score is LOWER than where the
+  person already is. Moving someone to more exposed work is the opposite of
+  the job. If nothing adjacent scores higher, say so and keep them where they
+  are, reshaping the role instead of moving it.
+- If rank_by_interest is available, use it to choose BETWEEN destinations that
+  already score at least as high. Task overlap says the person COULD do a job;
+  interest fit says whether they would want it, and a path to work they would
+  hate is a path they abandon. It is a tie-breaker, not a reason to accept a
+  worse score — trade overlap for interest, never resilience. A few points of
+  interest fit is not a difference; a difference is twenty.
 - constraints.answer_reading is an interpretation of the person's own words.
   Treat its hard_constraints as binding and its watch_outs as things your
   plan must avoid.
