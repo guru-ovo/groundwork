@@ -37,7 +37,7 @@ from app.services.similarity import compare_occupations, find_adjacent_occupatio
 
 logger = logging.getLogger("groundwork")
 
-MAX_STEPS = 5
+MAX_STEPS = 8
 
 
 # --- Tools ------------------------------------------------------------------
@@ -415,7 +415,12 @@ def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str],
     it means an LLM outage costs polish rather than the whole feature.
     """
     current = score_occupation(df, soc_code)
-    neighbours = find_adjacent_occupations(df, soc_code, limit=1)
+    # Ranked by overlap, but a destination scoring below where you already are
+    # is not "higher ground". Prefer the closest neighbour that actually scores
+    # higher; if none does, keep the closest and say so plainly below.
+    neighbours = find_adjacent_occupations(df, soc_code, limit=6)
+    better = [n for n in neighbours if n["resilience_score"] > current.resilience_score]
+    neighbours = [better[0]] if better else neighbours[:1]
 
     path = [{
         "soc_code": soc_code, "title": current.occupation_title,
@@ -479,7 +484,13 @@ def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str],
         target = neighbours[0]
         path.append({
             **target,
-            "rationale": f"Closest adjacent role by task overlap ({target['overlap_pct']}%).",
+            "rationale": (
+                f"Closest adjacent role by task overlap ({target['overlap_pct']}%)."
+                if target["resilience_score"] > current.resilience_score else
+                f"Closest adjacent role ({target['overlap_pct']}% task overlap). It does "
+                f"not score higher than where you are — nothing adjacent to this "
+                f"occupation does, so the plan reshapes your role rather than moving it."
+            ),
             "is_current": False,
             "interest_fit": (interest_fit(user_interests, target["soc_code"])
                              if user_interests else None),
@@ -512,10 +523,10 @@ def _fallback_plan(df: pd.DataFrame, soc_code: str, skills: list[str],
 
     return {
         "summary": (
-            f"{exposed} of your {total} tasks sit above the 0.5 exposure line, giving "
-            f"{current.occupation_title} a resilience score of {current.resilience_score}/100. "
-            f"Every milestone below names the task it came from. This plan was computed "
-            f"directly from the task data, without a language model."
+            "This plan takes your most exposed tasks and puts a review step in front "
+            "of them, then moves you toward the work that measured as holding steady. "
+            "Every milestone below names the task it came from. It was computed "
+            "directly from the task data, without a language model."
         ),
         "path": path,
         "phases": phases,
@@ -673,8 +684,31 @@ def run_career_agent(
         messages.append({"role": "user", "content":
                          "Observation:\n" + json.dumps(observation)[:4000]})
 
-    # Ran out of steps without a plan — still give the user something real.
-    logger.warning("Agent hit max_steps without a final plan")
+    # Investigation budget spent. Before falling back, ask once for the plan:
+    # the agent has the observations it needs by now, it simply kept looking.
+    # A silent fallback here throws away a real run's worth of tool output.
+    logger.info("Agent used its step budget; asking for the plan directly")
+    messages.append({"role": "user", "content":
+                     "You have used your investigation budget. Do not call another "
+                     "tool. Reply now with the final plan object, built from what "
+                     "you have already observed."})
+    try:
+        reply = _reply_with_retry(messages)
+        if reply.get("final"):
+            plan = _attach_authoritative_scores(df, reply["final"], soc_code, user_interests)
+            plan, cited = _enforce_citations(df, plan)
+            if cited:
+                plan["generated_by"] = "agent"
+                yield {"type": "step", "n": max_steps + 1,
+                       "thought": "Writing the plan from what I have.",
+                       "tool": "write_plan",
+                       "observation": f"{cited} milestones, each citing a real task."}
+                yield {"type": "final", "plan": plan}
+                return
+    except Exception:
+        logger.exception("Final-plan request failed after step budget")
+
+    logger.warning("Agent hit max_steps without a usable plan")
     yield {"type": "final", "plan": _fallback_plan(df, soc_code, skills, user_interests)}
 
 

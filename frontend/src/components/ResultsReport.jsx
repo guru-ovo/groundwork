@@ -93,9 +93,23 @@ export default function ResultsReport({ resilience, plan, weeklyHours, onStartOv
               </span>
             </div>
             <div className="path__node path__node--end">
-              <span className="path__score path__score--to">{destination.resilience_score}</span>
+              <span
+                className={
+                  'path__score path__score--' +
+                  (destination.resilience_score > (current?.resilience_score ?? 0) ? 'to' : 'flat')
+                }
+              >
+                {destination.resilience_score}
+              </span>
               <span className="path__title">{destination.title}</span>
-              <span className="path__cap">nearest higher ground</span>
+              {/* Only call it higher ground when it measurably is. Labelling a
+                  lower-scoring role as an improvement is the one thing this
+                  page cannot do and keep its claim. */}
+              <span className="path__cap">
+                {destination.resilience_score > (current?.resilience_score ?? 0)
+                  ? 'nearest higher ground'
+                  : 'closest by task overlap'}
+              </span>
             </div>
           </div>
           {destination.rationale && <p className="report__rationale">{destination.rationale}</p>}
