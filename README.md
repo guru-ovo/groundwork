@@ -379,6 +379,13 @@ cross-occupation comparison in the UI (the `/compare` endpoint exists and works,
 but nothing renders it yet); persistence of any kind — there is no account and
 no database, and the questionnaire lives in your session.
 
+**Designed but not implemented.** Semantic retrieval over the task corpus, so
+the agent could search all 18,747 task statements by meaning rather than only
+reading the occupations it already knows to look at. It would let the agent
+answer "which occupations involve work like *this*" instead of navigating
+occupation by occupation. Shelved because the grounded path works without it
+and an embedding index is a second source of truth to keep honest.
+
 ---
 
 ## Licence
