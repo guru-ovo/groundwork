@@ -193,53 +193,6 @@ export const STEPS = [
   },
 ]
 
-export const QUOTES = [
-  {
-    text:
-      'I’d been told for two years that my job was doomed. The report showed me ' +
-      'nine specific tasks were exposed and thirty-two weren’t. That is a ' +
-      'completely different conversation.',
-    name: 'Maya Ellsworth',
-    role: 'Senior Data Scientist',
-  },
-  {
-    text:
-      'The part that landed was the citation on every milestone. I could check ' +
-      'the reasoning instead of taking it on faith.',
-    name: 'Tom Vasquez',
-    role: 'Analytics Manager',
-  },
-  {
-    text:
-      'I ran it for all eleven roles on my team. The exposure wasn’t spread ' +
-      'evenly — it sat almost entirely in one band. That changed how I planned ' +
-      'the year.',
-    name: 'Priya Raghunathan',
-    role: 'Director of Insight',
-  },
-  {
-    text:
-      'It refused to tell me my job was safe, and I respect that more than the ' +
-      'tools that would have.',
-    name: 'Daniel Okafor',
-    role: 'Research Associate',
-  },
-  {
-    text:
-      'Four minutes for something my company paid a consultancy six figures to ' +
-      'get wrong.',
-    name: 'Hannah Beck',
-    role: 'Operations Lead',
-  },
-  {
-    text:
-      'The adjacent-role diagram was the first time anyone showed me a next step ' +
-      'in terms of tasks I already do.',
-    name: 'Luis Moreau',
-    role: 'Statistician',
-  },
-]
-
 export const PROMISES = [
   {
     title: 'No made-up numbers',

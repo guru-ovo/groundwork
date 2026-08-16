@@ -624,26 +624,6 @@
 .lp-start__title { font-size: 16px; font-weight: 500; letter-spacing: -.015em; }
 .lp-start__body { font-size: 13.5px; line-height: 1.65; color: var(--ink-dim); }
 
-/* --- Testimonials --------------------------------------------------------------- */
-
-.lp-quotes { display: flex; flex-direction: column; align-items: center; padding-top: var(--sp-18); }
-.lp-quotes h2 {
-  margin: 0; font-size: 38px; font-weight: 500;
-  letter-spacing: -.03em; text-align: center; text-wrap: balance;
-}
-.lp-quotes__grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-8);
-  width: 100%; margin-top: var(--sp-13);
-}
-.lp-quote { display: flex; flex-direction: column; gap: var(--sp-7); margin: 0; }
-.lp-quote blockquote {
-  margin: 0; font-size: 14.5px; line-height: 1.65;
-  color: var(--ink-2); text-wrap: pretty;
-}
-.lp-quote figcaption { display: flex; flex-direction: column; gap: 2px; margin-top: auto; }
-.lp-quote__name { font-size: 13px; font-weight: 500; }
-.lp-quote__role { font-size: 12px; color: var(--ink-dim); }
-
 /* --- Commitments ----------------------------------------------------------------- */
 
 .lp-promise {
@@ -743,7 +723,6 @@
 
   .lp-features__grid,
   .lp-uses__grid,
-  .lp-quotes__grid,
   .lp-start__steps,
   .lp-promise__grid { grid-template-columns: 1fr; }
 
@@ -763,7 +742,6 @@
   .lp-marquee h2,
   .lp-features h2,
   .lp-uses h2,
-  .lp-quotes h2 { font-size: 28px; }
   .lp-shot__head { flex-direction: column; align-items: flex-start; }
   .lp-band__inner { grid-template-columns: 1fr; }
   .lp-footer__inner { grid-template-columns: 1fr; }

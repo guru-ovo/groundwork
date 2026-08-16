@@ -3,7 +3,7 @@ import Logo from '../components/Logo'
 import { useSurface } from '../hooks/useSurface'
 import {
   AT_RISK, FAQS, FIELD, FOOTER, HERO, MARQUEE, MILESTONES, NAV_LINKS,
-  PIPELINE, PROMISES, QUOTES, RAIL, SOURCES, STATS, STEPS, STREAM, USE_CASES,
+  PIPELINE, PROMISES, RAIL, SOURCES, STATS, STEPS, STREAM, USE_CASES,
 } from './content'
 import './Landing.css'
 
@@ -45,7 +45,6 @@ export default function Landing() {
         <UseCases />
         <StatBand />
         <GetStarted />
-        <Testimonials />
         <Commitments />
         <Faq />
         <ClosingCta />
@@ -387,27 +386,6 @@ function GetStarted() {
           </li>
         ))}
       </ol>
-    </section>
-  )
-}
-
-/* --- Testimonials ---------------------------------------------------------- */
-
-function Testimonials() {
-  return (
-    <section className="lp-quotes">
-      <h2>What people say after they read theirs</h2>
-      <div className="lp-quotes__grid">
-        {QUOTES.map((q) => (
-          <figure key={q.name} className="card lp-quote">
-            <blockquote>{q.text}</blockquote>
-            <figcaption>
-              <span className="lp-quote__name">{q.name}</span>
-              <span className="lp-quote__role">{q.role}</span>
-            </figcaption>
-          </figure>
-        ))}
-      </div>
     </section>
   )
 }
