@@ -272,8 +272,43 @@ export const FAQS = [
   },
 ]
 
-export const FOOTER = [
-  { title: 'Product', links: ['Run a measurement', 'Sample report', 'For teams', 'Changelog'] },
-  { title: 'Method', links: ['How scoring works', 'Sources', 'Limitations', 'Coverage'] },
-  { title: 'Company', links: ['About', 'Contact', 'Privacy', 'Terms'] },
+/**
+ * Footer links — only destinations that exist.
+ *
+ * This was three columns of Product / Method / Company with twelve links,
+ * every one of them pointing at #method because none of the pages behind
+ * them were ever built. A hackathon project does not need an About page; it
+ * needs to not claim to have one.
+ */
+export const FOOTER_LINKS = [
+  { label: 'Run a measurement', to: '/start' },
+  { label: 'How scoring works', href: '#method' },
+  { label: 'Sources', href: '#sources' },
+  { label: 'Limitations', href: '#faq' },
+]
+
+/**
+ * Data attribution.
+ *
+ * O*NET is published under CC BY 4.0, which *requires* attribution — the site
+ * carried none until now. The other two are cited because a product that says
+ * "every number traces to a published source" should let the reader go and
+ * check the source.
+ */
+export const ATTRIBUTION = [
+  {
+    name: 'O*NET 29.0',
+    detail: 'U.S. Department of Labor, Employment and Training Administration. Used under CC BY 4.0.',
+    href: 'https://www.onetcenter.org/',
+  },
+  {
+    name: 'Anthropic Economic Index',
+    detail: 'Observed Claude usage mapped to O*NET tasks.',
+    href: 'https://huggingface.co/datasets/Anthropic/EconomicIndex',
+  },
+  {
+    name: 'Eloundou, Manning, Mishkin & Rock (2023)',
+    detail: 'GPTs are GPTs: task-level exposure coefficients.',
+    href: 'https://arxiv.org/abs/2303.10130',
+  },
 ]

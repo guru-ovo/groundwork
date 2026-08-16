@@ -2,8 +2,10 @@ import { Link } from 'react-router-dom'
 import Logo from '../components/Logo'
 import { useSurface } from '../hooks/useSurface'
 import {
-  AT_RISK, FAQS, FIELD, FOOTER, HERO, MARQUEE, MILESTONES, NAV_LINKS,
-  PIPELINE, PROMISES, RAIL, SOURCES, STATS, STEPS, STREAM, USE_CASES,
+  AT_RISK,
+  ATTRIBUTION, FAQS, FIELD, FOOTER_LINKS, HERO, MARQUEE, MILESTONES,
+  NAV_LINKS, PIPELINE, PROMISES, RAIL, SOURCES, STATS, STEPS, STREAM,
+  USE_CASES,
 } from './content'
 import './Landing.css'
 
@@ -476,14 +478,31 @@ function SiteFooter() {
             not an AI&apos;s guess.
           </span>
         </div>
-        {FOOTER.map((col) => (
-          <nav key={col.title} className="lp-footer__col" aria-label={col.title}>
-            <span className="lp-footer__col-title">{col.title}</span>
-            {col.links.map((l) => (
-              <a key={l} href="#method">{l}</a>
-            ))}
-          </nav>
-        ))}
+
+        <nav className="lp-footer__nav" aria-label="Footer">
+          {FOOTER_LINKS.map((l) =>
+            l.to ? (
+              <Link key={l.label} to={l.to}>{l.label}</Link>
+            ) : (
+              <a key={l.label} href={l.href}>{l.label}</a>
+            ),
+          )}
+        </nav>
+      </div>
+
+      {/* Attribution, not decoration: O*NET's licence requires it, and a
+          product claiming every figure traces to a published source should
+          make the sources reachable. */}
+      <div className="lp-footer__attribution">
+        <span className="mono-label">Data</span>
+        <ul>
+          {ATTRIBUTION.map((a) => (
+            <li key={a.name}>
+              <a href={a.href} target="_blank" rel="noreferrer noopener">{a.name}</a>
+              <span>{a.detail}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </footer>
   )

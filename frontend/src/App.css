@@ -21,6 +21,7 @@
 
   --ink: #f2ede2;         /* primary text            14.9:1 on --panel */
   --ink-2: #e5dfd2;       /* body text in tables     13.1:1 */
+  --ink-3: #c9c0ad;       /* body text in cards       9.6:1 */
   --ink-dim: #a49b88;     /* secondary text           6.3:1 */
   --ink-muted: #8a8272;   /* tertiary text            4.6:1 */
   /* The handoff specifies #6f6a60 here, which measures 3.23:1 — below the
