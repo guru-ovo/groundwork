@@ -118,9 +118,6 @@ export function validateStep(stepId, answers) {
   return errors
 }
 
-export function isStepComplete(stepId, answers) {
-  return validateStep(stepId, answers).length === 0
-}
 
 export function toRequestPayload(answers) {
   const hours = HOURS_OPTIONS.find((o) => o.value === answers.hours)
