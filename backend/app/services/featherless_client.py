@@ -96,6 +96,15 @@ def chat_json(
             f"Featherless {resp.status_code} for model={model}: {resp.text[:500]}"
         )
 
+    # SSE bodies arrive as `text/event-stream` with no charset parameter, and
+    # requests falls back to ISO-8859-1 whenever the media type is text/* and
+    # the charset is absent. The stream is UTF-8, so every non-ASCII character
+    # the model writes — a non-breaking space, an en dash, a >= sign — gets
+    # decoded a byte at a time and reaches the reader as mojibake
+    # ("3.5\u00e2\u00afhrs", "at\u00e2\u0091risk"). The bytes were always
+    # correct; only the decoder was wrong.
+    resp.encoding = "utf-8"
+
     pieces: list[str] = []
     finish: str | None = None
     unreadable = 0

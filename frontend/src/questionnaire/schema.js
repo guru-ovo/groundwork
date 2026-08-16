@@ -19,10 +19,13 @@ export const INTEREST_KEYS = [
 // a person who dislikes everything.
 export const INTEREST_DEFAULT = 4
 
+// Every id in STEP_IDS needs an entry here. `interests` was missing, so step
+// 4 rendered an empty <h2>; the title below is the one the design gives it.
 export const STEP_TITLES = {
   role: 'What do you do now?',
   skills: 'What can you already do?',
   values: 'What matters to you at work?',
+  interests: 'What kind of work pulls at you?',
   time: 'How much can you invest?',
   goal: 'Where do you want this to go?',
   review: 'Check this over',
@@ -95,8 +98,12 @@ export function validateStep(stepId, answers) {
     errors.push('Add at least one thing you can already do.')
   }
 
+  // Fires when nothing is chosen, so it has to name the floor, not the cap.
+  // "Choose up to 2" told someone who had picked none about a limit they were
+  // nowhere near — and the cap is already enforced by disabling the remaining
+  // cards, so it never needed an error message at all.
   if (stepId === 'values' && answers.workValues.length === 0) {
-    errors.push(`Choose up to ${MAX_VALUES}.`)
+    errors.push('Choose at least one — two if you can.')
   }
 
   if (stepId === 'time') {

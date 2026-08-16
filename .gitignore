@@ -15,3 +15,15 @@ dist/
 
 # OS
 .DS_Store
+
+# AI assistant tooling — not part of the product.
+# These are design skills vendored from a third-party repo (Leonxlnx/taste-skill),
+# carry no licence of their own, and nothing in backend/ or frontend/ references
+# them. Tracking someone else's unlicensed files under this repo's MIT LICENSE
+# was a licensing conflict as well as 324KB of noise at the repo root.
+.agents/
+.claude/
+skills-lock.json
+
+# Design reference bundle — not source; the app builds without it.
+High-end SaaS design recreation.zip

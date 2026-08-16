@@ -17,10 +17,6 @@ export default function SkillsStep({ answers, update }) {
 
   return (
     <div className="qn__step">
-      <p className="qn__hint">
-        List what you can do today. The plan will not tell you to learn
-        something you already have.
-      </p>
 
       <form onSubmit={add} className="qn__row">
         <label className="qn__sr" htmlFor="qn-skill-input">Add a skill</label>
