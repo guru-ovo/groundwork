@@ -60,25 +60,33 @@ export default function InterestsStep({ answers, update }) {
           const value = answers.interests?.[key] ?? INTEREST_DEFAULT
           return (
             <li key={key} className="interests__item">
-              <label className="interests__prompt" htmlFor={`interest-${key}`}>
-                {prompts[key] ?? key}
-              </label>
-              <div className="interests__control">
-                <span className="interests__end">{scale.min_label}</span>
-                <input
-                  id={`interest-${key}`}
-                  type="range"
-                  min={scale.min}
-                  max={scale.max}
-                  step={1}
-                  value={value}
-                  onChange={(e) => setValue(key, e.target.value)}
-                  aria-describedby={`interest-${key}-value`}
-                />
-                <span className="interests__end">{scale.max_label}</span>
-                <output id={`interest-${key}-value`} className="interests__value">
+              {/* The dimension names the axis; the API prompt explains it. */}
+              <div className="interests__head">
+                <label className="interests__name" htmlFor={`interest-${key}`}>
+                  {key[0].toUpperCase() + key.slice(1)}
+                </label>
+                <span className="interests__hint">{prompts[key] ?? key}</span>
+                <output
+                  id={`interest-${key}-value`}
+                  className={'interests__value' + (value === INTEREST_DEFAULT ? '' : ' is-set')}
+                >
                   {value}
                 </output>
+              </div>
+              <input
+                id={`interest-${key}`}
+                type="range"
+                min={scale.min}
+                max={scale.max}
+                step={1}
+                value={value}
+                onChange={(e) => setValue(key, e.target.value)}
+                aria-describedby={`interest-${key}-value`}
+                aria-valuetext={`${value} of ${scale.max}`}
+              />
+              <div className="interests__ends" aria-hidden="true">
+                <span>{scale.min_label}</span>
+                <span>{scale.max_label}</span>
               </div>
             </li>
           )

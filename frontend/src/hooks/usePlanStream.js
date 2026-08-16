@@ -16,6 +16,10 @@ export function usePlanStream() {
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState(null)
   const abortRef = useRef(null)
+  // Kept so the plan can be retried on its own. The score is computed
+  // separately and must survive a failed run untouched, so retrying has to
+  // mean "run the agent again", never "start the whole measurement again".
+  const payloadRef = useRef(null)
 
   const reset = useCallback(() => {
     abortRef.current?.abort()
@@ -32,6 +36,7 @@ export function usePlanStream() {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+    payloadRef.current = payload
 
     setSteps([])
     setPhase('')
@@ -60,5 +65,22 @@ export function usePlanStream() {
     }
   }, [])
 
-  return { steps, phase, reading, plan, status, error, start, reset }
+  /** Re-run only the agent. Anything already computed stays as it is. */
+  const retry = useCallback(() => {
+    if (payloadRef.current) start(payloadRef.current)
+  }, [start])
+
+  /**
+   * Give up on the plan and keep what was measured.
+   *
+   * Clears the error without clearing the score, so the report renders with
+   * its numbers and no written plan — which is honest, because the numbers
+   * never needed the model in the first place.
+   */
+  const dismissError = useCallback(() => {
+    setError(null)
+    setStatus('done')
+  }, [])
+
+  return { steps, phase, reading, plan, status, error, start, reset, retry, dismissError }
 }

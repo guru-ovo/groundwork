@@ -48,13 +48,18 @@ export async function streamCareerPlan(payload, onEvent, signal) {
   }
 }
 
-export async function getRoadmap(socCode, studentSkills) {
-  const res = await fetch(`${BASE_URL}/roadmap`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ soc_code: socCode, student_skills: studentSkills }),
-  })
-  if (!res.ok) throw new Error('Could not generate roadmap')
+
+/**
+ * Occupations adjacent to this one, by task overlap.
+ *
+ * Pure computation server-side, so it answers in milliseconds — which is what
+ * lets the match panel fill in beside the questionnaire rather than after it.
+ */
+export async function getAdjacent(socCode, limit = 4) {
+  const res = await fetch(
+    `${BASE_URL}/adjacent/${encodeURIComponent(socCode)}?limit=${limit}`,
+  )
+  if (!res.ok) throw new Error('Could not load adjacent occupations')
   return res.json()
 }
 

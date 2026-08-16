@@ -19,10 +19,13 @@ export const INTEREST_KEYS = [
 // a person who dislikes everything.
 export const INTEREST_DEFAULT = 4
 
+// Every id in STEP_IDS needs an entry here. `interests` was missing, so step
+// 4 rendered an empty <h2>; the title below is the one the design gives it.
 export const STEP_TITLES = {
   role: 'What do you do now?',
   skills: 'What can you already do?',
   values: 'What matters to you at work?',
+  interests: 'What kind of work pulls at you?',
   time: 'How much can you invest?',
   goal: 'Where do you want this to go?',
   review: 'Check this over',
