@@ -45,6 +45,12 @@
   --amber-hover: #e5b45c; /* amber, one step lighter */
   --clay-rule: #4a2e24;   /* error container border — non-text */
 
+  /* Native controls — range tracks, checkboxes, scrollbars — pick their own
+     colours from this, not from our tokens. Undeclared, they default to the
+     light theme, which is why the interest sliders had a bright white track
+     sitting on a near-black page. */
+  color-scheme: dark;
+
   --display: 'Instrument Serif', Georgia, serif;   /* weight 400 only */
   --body: 'IBM Plex Sans', system-ui, sans-serif;  /* 400 / 500 / 600 */
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -104,6 +110,8 @@ html[data-surface='paper'] {
 
   /* This surface has no accent hue, so the logo's far stratum is plain ink. */
   --logo-accent: #171614;
+
+  color-scheme: light;
 
   --display: 'Inter', system-ui, sans-serif;
   --body: 'Inter', system-ui, sans-serif;
